@@ -1,4 +1,4 @@
-name: Build Pocket Pet 96 v7 (navigation fix)
+name: Build Pocket Pet 96 v8 APK
 on:
   push:
     branches: [tamagotchi-android]
@@ -8,28 +8,14 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
-      - name: Expand v7 source
+      - name: Expand v8 source
         run: |
-          test -s source_v7.tar.xz.b64
-          base64 -d source_v7.tar.xz.b64 | tar -xJf -
-          test -f app/src/main/java/ru/pgws/pocketpet/TouchRegions.java
-          # Hotfix the double-dispatch: opening the treatment scene must not
-          # immediately invoke its newly visible BACK button in the same UP event.
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path('app/src/main/java/ru/pgws/pocketpet/PetView.java')
-          s=p.read_text()
-          a='        boolean did=false;\n        if(action==MotionEvent.ACTION_CANCEL)'
-          b='        int originalScreen=screen; // Capture the scene where the touch began.\n        boolean did=false;\n        if(action==MotionEvent.ACTION_CANCEL)'
-          c='if(y>=693&&y<766&&screen!=0)'
-          d='if(originalScreen!=0&&y>=693&&y<766&&screen!=0)'
-          if a not in s or c not in s: raise SystemExit('Touch fix preconditions not met')
-          p.write_text(s.replace(a,b,1).replace(c,d,1))
-          print('Treatment navigation double-dispatch fixed')
-          PY
+          test -s source_v8.tar.xz.b64
+          base64 -d source_v8.tar.xz.b64 | tar -xJf -
+          test -f app/src/main/java/ru/pgws/pocketpet/Lessons.java
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -42,34 +28,52 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.13'
-      - name: Download 8BIT WONDER RUS for personal-use build
+      - name: Obtain original LCD5x8H font
         run: |
           mkdir -p app/src/main/assets
-          curl -fLsS --retry 3 --retry-delay 3 'https://db.onlinewebfonts.com/t/e844e1db9d25590da3283ed203b03f86.ttf' -o app/src/main/assets/EightBitWonderRus.ttf
+          curl -fLsS --connect-timeout 12 --max-time 45 'https://www.ubasics.com/mcgahee/LCDTTF.ZIP' -o /tmp/LCDTTF.ZIP || true
+          if unzip -tq /tmp/LCDTTF.ZIP >/dev/null 2>&1; then
+            mkdir -p /tmp/pet-font
+            unzip -jo /tmp/LCDTTF.ZIP -d /tmp/pet-font
+            find /tmp/pet-font -iname '*.ttf' -print -quit | xargs -r -I{} cp '{}' app/src/main/assets/LCD5x8H.ttf
+          fi
+          if [ ! -s app/src/main/assets/LCD5x8H.ttf ]; then
+            curl -fLsS --retry 3 'https://db.onlinewebfonts.com/t/b18184281842de0a7e3535f9ed379a40.ttf' -o app/src/main/assets/LCD5x8H.ttf
+          fi
           python3 - <<'PY'
           from pathlib import Path
-          f=Path('app/src/main/assets/EightBitWonderRus.ttf')
-          if f.stat().st_size < 12000 or f.read_bytes()[:4] not in (b'\x00\x01\x00\x00', b'OTTO', b'ttcf'):
-              raise SystemExit('Font download was not a usable TTF')
-          print('8BIT WONDER RUS TTF verified; bytes', f.stat().st_size)
+          p=Path('app/src/main/assets/LCD5x8H.ttf')
+          b=p.read_bytes()
+          if len(b)<8000 or b[:4] not in (b'\x00\x01\x00\x00', b'OTTO', b'ttcf'):
+              raise SystemExit('Invalid LCD5x8H font')
+          print('LCD5x8H bytes:',len(b))
           PY
-          curl --fail --location --retry 3 'https://raw.githubusercontent.com/google/fonts/main/ofl/pixelifysans/PixelifySans%5Bwght%5D.ttf' --output app/src/main/assets/PixelifySans.ttf
-      - name: Test aging, care and 1000 variants
+      - name: Unit and regression tests
         run: |
           mkdir -p /tmp/pet-tests
-          javac -encoding UTF-8 -d /tmp/pet-tests app/src/main/java/ru/pgws/pocketpet/PetGame.java app/src/main/java/ru/pgws/pocketpet/PetSprites.java app/src/main/java/ru/pgws/pocketpet/MiniGames.java app/src/main/java/ru/pgws/pocketpet/TouchRegions.java localtest/TestPets.java localtest/TestMiniGames.java localtest/TestLifecycle.java localtest/TestInteractionV7.java
+          javac -encoding UTF-8 -d /tmp/pet-tests \
+            app/src/main/java/ru/pgws/pocketpet/PetGame.java \
+            app/src/main/java/ru/pgws/pocketpet/PetSprites.java \
+            app/src/main/java/ru/pgws/pocketpet/MiniGames.java \
+            app/src/main/java/ru/pgws/pocketpet/TouchRegions.java \
+            app/src/main/java/ru/pgws/pocketpet/Lessons.java \
+            localtest/TestPets.java localtest/TestMiniGames.java \
+            localtest/TestLifecycle.java localtest/TestInteractionV7.java \
+            localtest/TestLessons.java
           java -cp /tmp/pet-tests TestPets
           java -cp /tmp/pet-tests TestMiniGames
           java -cp /tmp/pet-tests TestLifecycle
           java -cp /tmp/pet-tests TestInteractionV7
-      - name: Compile signed APK
+          java -cp /tmp/pet-tests TestLessons
+      - name: Build release APK
         run: gradle :app:assembleRelease --no-daemon --stacktrace
-      - name: Verify APK
+      - name: Inspect output
         run: |
           test -s app/build/outputs/apk/release/app-release.apk
+          unzip -t app/build/outputs/apk/release/app-release.apk | tail -1
           sha256sum app/build/outputs/apk/release/app-release.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: PocketPet96-Touch-v7.0.0-Android-4.4plus
+          name: PocketPet96-v8-LCD-Android-4.4plus
           path: app/build/outputs/apk/release/app-release.apk
           retention-days: 30
