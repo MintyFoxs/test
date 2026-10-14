@@ -48,6 +48,10 @@ jobs:
               raise SystemExit('Invalid LCD5x8H font')
           print('LCD5x8H bytes:',len(b))
           PY
+      - name: Add matching Cyrillic LCD dot glyphs
+        run: |
+          python3 -m pip install --quiet fonttools
+          python3 tools/extend_lcd_cyrillic.py
       - name: Unit and regression tests
         run: |
           mkdir -p /tmp/pet-tests
