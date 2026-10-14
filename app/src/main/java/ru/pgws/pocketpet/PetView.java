@@ -24,11 +24,12 @@ public final class PetView extends View {
     private static final int LIGHT = Color.rgb(193, 218, 170);
     private static final int DIM = Color.rgb(124, 154, 115);
     private static final String[] ICON_LABELS = {
-            "STATUS", "FOOD", "LIGHT", "GAME", "MED", "CLEAN", "SCOLD", "ALERT"
+            "СТАТУС", "ЕДА", "СВЕТ", "ИГРЫ", "ЛЕЧИТЬ", "УБОРКА", "ВОСПИТ.", "СИГНАЛ"
     };
     private int screen=0, statPage=0;
-    private boolean lastWin;
-    private long resultUntil;
+    private MiniGames mini;
+    private int gamePage=0;
+    private boolean rewardPaid=false;
     private long resetConfirmUntil;
     private int cachedGene=-1, cachedStage=-1, cachedPersonality=-1;
     private String[] cachedPet;
@@ -80,7 +81,7 @@ public final class PetView extends View {
         super(ctx);
         this.g = game;
         this.activity = host;
-        setContentDescription("Touchscreen monochrome virtual pet. Tap menu icons directly.");
+        setContentDescription("Виртуальный питомец. Нажимайте на значки меню и игровые клетки.");
     }
 
     private void color(int col) {
@@ -98,7 +99,7 @@ public final class PetView extends View {
         color(col);c.drawRoundRect(new RectF(x,y,x2,y2),r,r,p);
     }
     private void txt(Canvas c,String s,float x,float y,int size,int col,boolean center) {
-        color(col);p.setTypeface(Typeface.create("monospace",Typeface.BOLD));
+        color(col);p.setTypeface(Typeface.DEFAULT_BOLD);
         p.setTextSize(size);p.setTextAlign(center?Paint.Align.CENTER:Paint.Align.LEFT);
         c.drawText(s,x,y,p);
     }
@@ -129,10 +130,10 @@ public final class PetView extends View {
         line(c,INK,8,647,392,647,2);
     }
     private void drawHeader(Canvas c) {
-        txt(c,"POCKET PET",22,35,20,INK,false);
+        txt(c,"КАРМАННЫЙ ПИТОМЕЦ",15,35,17,INK,false);
         txt(c,clock.format(new Date(System.currentTimeMillis())),376,34,17,INK,true);
-        txt(c,"96  //  PIXEL COMPANION",22,57,11,INK,false);
-        txt(c,g.alive ? "AGE "+g.ageDays(System.currentTimeMillis())+" D" : "MEMORY",376,56,11,INK,true);
+        txt(c,"96 / СЕНСОРНОЕ УПРАВЛЕНИЕ",17,57,10,INK,false);
+        txt(c,g.alive ? "ВОЗРАСТ "+g.ageDays(System.currentTimeMillis())+" Д" : "ПАМЯТЬ",376,56,11,INK,true);
         line(c,DIM,16,67,384,67,1);
     }
     private void drawIcons(Canvas c) {
@@ -149,7 +150,7 @@ public final class PetView extends View {
             drawIcon(c,i,x,cy-11,alert?LCD:INK);
             txt(c,ICON_LABELS[i],x,cy+30,11,alert?LCD:INK,true);
         }
-        txt(c,"TAP ICON TO USE",200,785,11,INK,true);
+        txt(c,"НАЖМИ НА ЗНАЧОК",200,785,11,INK,true);
     }
     private void drawIcon(Canvas c,int index,float x,float y,int col) {
         // Monochrome icons intentionally use 90-degree pixel geometry.
@@ -205,33 +206,35 @@ public final class PetView extends View {
         long now=System.currentTimeMillis();
         if(!g.alive){
             sprite(c,GHOST,120,252,10,false);
-            txt(c,"GOODBYE",200,447,23,INK,true);
-            txt(c,"TAP PET FOR NEW EGG",200,483,13,INK,true);
+            txt(c,"ДО СВИДАНИЯ...",200,447,21,INK,true);
+            txt(c,"НАЖМИ ДЛЯ НОВОГО ЯЙЦА",200,483,14,INK,true);
             return;
         }
         if(g.stage==PetGame.EGG){
             sprite(c,EGG,120,(now/550)%2==0?254:259,10,false);
-            txt(c,"EGG IS WARMING",200,453,17,INK,true);
+            txt(c,"ЯЙЦО СОГРЕВАЕТСЯ",200,453,18,INK,true);
             int left=(int)Math.max(0,(g.hatch-now+59999)/PetGame.MINUTE);
-            txt(c,"HATCH IN "+left+" MIN",200,481,14,INK,true);
-            txt(c,"PET #"+String.format(Locale.US,"%04d",g.genes)+" / 1000",200,527,13,INK,true);
+            txt(c,"ДО ВЫЛУПЛЕНИЯ "+left+" МИН",200,481,15,INK,true);
+            txt(c,"ВАРИАНТ №"+String.format(Locale.US,"%04d",g.genes),200,525,13,INK,true);
             return;
         }
         switch(screen){
             case 1:drawFood(c);return;
-            case 2:drawPlay(c,now);return;
+            case 2:drawGamesMenu(c);return;
             case 3:drawStats(c,now);return;
             case 4:drawClock(c,now);return;
+            case 5:drawMiniGame(c,now);return;
             default:drawPet(c,now);
         }
     }
     private void drawPet(Canvas c,long now) {
+        txt(c,(g.name==null||g.name.isEmpty())?"ПИТОМЕЦ":g.name,200,210,22,INK,true);
         line(c,DIM,55,504,345,504,2);
         line(c,DIM,83,512,317,512,1);
         if(g.sleeping(now)&&!g.lights){
             txt(c,"Z z Z",200,338,39,INK,true);
-            txt(c,"SLEEPING",200,404,20,INK,true);
-        } else {
+            txt(c,"СПИТ",200,404,20,INK,true);
+        }else{
             int bob=((now/400)%3==0)?5:0;
             sprite(c,chooseSprite(),100,245+bob,10,(now/3700)%8==0);
             if(g.dirty>0)drawPoo(c,70,469);
@@ -240,63 +243,120 @@ public final class PetView extends View {
             if(g.sleeping(now))txt(c,"Zz",308,304,20,INK,true);
             if(g.needsHelp(now))txt(c,"!",68,300,32,INK,true);
         }
-        if(g.noticeUntil>now) txt(c,g.notice,200,568,21,INK,true);
-        else txt(c,g.sleeping(now)?"SLEEP TIME":"TAKE GOOD CARE!",200,563,15,INK,true);
-        txt(c,"TAP THE ICONS TO CARE",200,600,12,DIM,true);
-        txt(c,"PET #"+String.format(Locale.US,"%04d",g.genes)+" / 1000",200,624,11,INK,true);
+        if(g.noticeUntil>now)txt(c,g.notice,200,568,18,INK,true);
+        else txt(c,g.sleeping(now)?"ПОРА СПАТЬ":"ЗАБОТЬСЯ ОБО МНЕ!",200,563,17,INK,true);
+        txt(c,"НАЖИМАЙ НА ИКОНКИ",200,600,13,DIM,true);
+        txt(c,"ПИТОМЕЦ №"+String.format(Locale.US,"%04d",g.genes)+" / 1000",200,624,12,INK,true);
     }
     private void drawFood(Canvas c) {
-        txt(c,"FOOD",200,224,25,INK,true);
-        choice(c,"MEAL", "FILL HUNGER",246,330);
-        choice(c,"SNACK","MORE HAPPINESS",246,430);
-        txt(c,"TAP A FOOD TO FEED",200,577,13,INK,true);
-        txt(c,"TAP OUTSIDE TO RETURN",200,608,11,DIM,true);
+        txt(c,"КОРМЛЕНИЕ",200,224,25,INK,true);
+        choice(c,"ОБЕД","УТОЛИТ ГОЛОД",330);
+        choice(c,"СЛАДОСТЬ","ПОВЫСИТ РАДОСТЬ",430);
+        txt(c,"ВЫБЕРИ ЕДУ НАЖАТИЕМ",200,577,13,INK,true);
+        txt(c,"НАЖМИ МИМО, ЧТОБЫ ВЫЙТИ",200,608,12,DIM,true);
     }
-    private void choice(Canvas c,String name,String subtitle,int x,int cy){
+    private void choice(Canvas c,String name,String subtitle,int cy){
         outline(c,INK,34,cy-35,366,cy+48,3);
-        txt(c,name,x-46,cy+1,20,INK,true);
-        txt(c,subtitle,x-46,cy+25,12,INK,true);
+        txt(c,name,200,cy+1,20,INK,true);
+        txt(c,subtitle,200,cy+25,12,INK,true);
     }
-    private void drawPlay(Canvas c,long now) {
-        txt(c,"GUESS THE SIDE",200,236,21,INK,true);
-        outline(c,INK,23,284,188,476,3);
-        outline(c,INK,212,284,377,476,3);
-        txt(c,"<",105,408,73,INK,true);
-        txt(c,">",294,408,73,INK,true);
-        txt(c,"LEFT",105,449,13,INK,true);
-        txt(c,"RIGHT",294,449,13,INK,true);
-        if(resultUntil>now)
-            txt(c,lastWin?"CORRECT!":"TRY AGAIN!",200,552,20,INK,true);
-        else txt(c,"TAP LEFT OR RIGHT",200,552,16,INK,true);
-        txt(c,"TAP OUTSIDE TO EXIT",200,601,11,DIM,true);
+    private void drawGamesMenu(Canvas c) {
+        txt(c,"ВЫБЕРИ МИНИ-ИГРУ",200,207,22,INK,true);
+        txt(c,"ИГРЫ "+(gamePage*5+1)+"–"+(gamePage*5+5)+" ИЗ 10",200,238,12,DIM,true);
+        for(int i=0;i<5;i++){
+            int y=266+i*61;
+            outline(c,INK,26,y,374,y+52,2);
+            txt(c,(gamePage*5+i+1)+". "+MiniGames.NAMES[gamePage*5+i],200,y+32,17,INK,true);
+        }
+        outline(c,INK,30,582,370,631,2);
+        txt(c,gamePage==0?"СЛЕДУЮЩИЕ 5  >":"<  ПЕРВЫЕ 5",200,613,16,INK,true);
+    }
+    private void drawMiniGame(Canvas c,long now){
+        if(mini==null){screen=2;return;}
+        mini.tick(now);
+        if(mini.complete && !rewardPaid){
+            rewardPaid=true;
+            g.rewardGame(mini.won,now);activity.persist();
+        }
+        txt(c,(mini.type+1)+". "+mini.title(),200,203,23,INK,true);
+        txt(c,mini.instruction(),200,236,12,DIM,true);
+        txt(c,mini.prompt(now),200,280,17,INK,true);
+        if(mini.complete){
+            txt(c,mini.won?"★":"×",200,392,65,INK,true);
+            txt(c,mini.won?"НАСТРОЕНИЕ +1":"ПОПРОБУЙ ЕЩЁ!",200,454,22,INK,true);
+            outline(c,INK,30,515,370,567,3);
+            txt(c,"ИГРАТЬ СНОВА",200,549,18,INK,true);
+            txt(c,"ВЫХОД: НАЖМИ НИЖЕ",200,608,12,DIM,true);
+            return;
+        }
+        int n=mini.type==1?6:9;
+        if(mini.type==5){
+            outline(c,INK,28,327,191,502,3);
+            outline(c,INK,209,327,372,502,3);
+            txt(c,"МЕНЬШЕ",110,415,20,INK,true);
+            txt(c,"БОЛЬШЕ",290,415,20,INK,true);
+        }else if(mini.type==9){
+            for(int i=0;i<3;i++){
+                int y=320+78*i;
+                outline(c,INK,42,y,358,y+65,3);
+                txt(c,""+mini.cells[i],200,y+42,28,INK,true);
+            }
+        }else{
+            for(int i=0;i<n;i++){
+                int col=i%3,row=i/3;
+                int x=32+col*113,y=307+row*80;
+                boolean lit=(i==mini.currentDisplayCell(now));
+                if(mini.type==1){lit=(mini.first==i||mini.second==i);}
+                if(mini.type==7 && i==mini.cursor)lit=true;
+                if(lit)fill(c,INK,x,y,x+106,y+72);
+                else outline(c,INK,x,y,x+106,y+72,2);
+                int textCol=lit?LCD:INK;
+                if(mini.type==1){
+                    if(mini.cells[i]==0)txt(c,"✓",x+53,y+49,30,INK,true);
+                    else txt(c,lit?""+mini.cells[i]:"?",x+53,y+49,32,textCol,true);
+                }else if(mini.type==6){
+                    if(i==mini.target+3)txt(c,"●",x+53,y+47,29,textCol,true);
+                    if(i==mini.cursor+6)txt(c,"⌂",x+53,y+48,30,textCol,true);
+                }else if(mini.type==7){
+                    if(mini.cells[i]==1)txt(c,"×",x+53,y+49,30,INK,true);
+                    else if(i==8)txt(c,"Ф",x+53,y+48,25,textCol,true);
+                    else if(i==mini.cursor)txt(c,"●",x+53,y+48,25,textCol,true);
+                    else txt(c,"·",x+53,y+48,21,textCol,true);
+                }else if(lit)txt(c,mini.type==4?"●":"!",x+53,y+49,28,textCol,true);
+            }
+        }
+        txt(c,"УСПЕХ: "+mini.score+"/"+mini.progressGoal()+"  ОШИБОК: "+mini.errors+"/3",200,590,15,INK,true);
+        txt(c,"НАЖМИ НИЖЕ ДЛЯ ВЫХОДА",200,620,12,DIM,true);
     }
     private void drawStats(Canvas c,long now) {
-        txt(c,"STATUS",200,229,24,INK,true);
-        txt(c,"PAGE "+(statPage+1)+" / 3",200,264,13,DIM,true);
+        txt(c,"СОСТОЯНИЕ",200,223,24,INK,true);
+        txt(c,"СТРАНИЦА "+(statPage+1)+" / 3",200,255,13,DIM,true);
         if(statPage==0){
-            txt(c,"AGE   "+g.ageDays(now)+" DAYS",200,326,20,INK,true);
-            txt(c,"WEIGHT   "+g.weight+" G",200,373,18,INK,true);
-            txt(c,"CARE MISSES  "+g.missed,200,425,15,INK,true);
-            txt(c,"PET #"+String.format(Locale.US,"%04d",g.genes),200,465,16,INK,true);
+            txt(c,"ИМЯ: "+(g.name==null||g.name.isEmpty()?"ПИТОМЕЦ":g.name),200,310,18,INK,true);
+            txt(c,"ВОЗРАСТ: "+g.ageDays(now)+" ДНЕЙ",200,355,18,INK,true);
+            txt(c,"ВЕС: "+g.weight+" Г",200,400,18,INK,true);
+            txt(c,"ПОБЕД В ИГРАХ: "+g.gamesWon,200,446,15,INK,true);
+            outline(c,INK,60,464,340,517,2);
+            txt(c,"ПЕРЕИМЕНОВАТЬ",200,496,18,INK,true);
         } else if(statPage==1){
-            txt(c,"HUNGER",200,321,18,INK,true);
+            txt(c,"СЫТОСТЬ",200,321,18,INK,true);
             hearts(c,g.hunger,144,344);
-            txt(c,"HAPPINESS",200,409,18,INK,true);
+            txt(c,"НАСТРОЕНИЕ",200,409,18,INK,true);
             hearts(c,g.happy,144,431);
         } else {
-            txt(c,"DISCIPLINE",200,324,18,INK,true);
+            txt(c,"ВОСПИТАНИЕ",200,324,18,INK,true);
             hearts(c,g.discipline,144,349);
-            txt(c,"HEALTH: "+(g.sickness>0?"SICK":"HEALTHY"),200,422,18,INK,true);
+            txt(c,"ЗДОРОВЬЕ: "+(g.sickness>0?"БОЛЕЕТ":"ХОРОШО"),200,422,18,INK,true);
             outline(c,INK,73,466,327,526,2);
-            txt(c,resetConfirmUntil>now?"TAP AGAIN TO RESET":"NEW EGG",200,502,17,INK,true);
+            txt(c,resetConfirmUntil>now?"ПОДТВЕРДИ НАЖАТИЕМ":"НОВОЕ ЯЙЦО",200,502,15,INK,true);
         }
-        txt(c,"<  PREVIOUS     NEXT  >",200,556,17,INK,true);
-        txt(c,"TAP LEFT / RIGHT TO TURN",200,603,11,DIM,true);
+        txt(c,"<  НАЗАД       ДАЛЬШЕ  >",200,562,16,INK,true);
+        txt(c,"НАЖМИ СЛЕВА ИЛИ СПРАВА",200,603,12,DIM,true);
     }
     private void drawClock(Canvas c,long now) {
-        txt(c,"TIME",200,300,22,INK,true);
+        txt(c,"ВРЕМЯ",200,300,22,INK,true);
         txt(c,clock.format(new Date(now)),200,386,47,INK,true);
-        txt(c,"TAP TO RETURN",200,555,14,INK,true);
+        txt(c,"НАЖМИ, ЧТОБЫ ВЕРНУТЬСЯ",200,555,14,INK,true);
     }
     private void drawPoo(Canvas c,int x,int y) {
         fill(c,INK,x,y+8,x+23,y+18);fill(c,INK,x+4,y+2,x+19,y+11);
@@ -336,7 +396,7 @@ public final class PetView extends View {
         float y=(e.getY()-dy)/scale;
         if(x<0||x>400||y<0||y>800)return true;
         try {performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);}catch(Exception ignored){}
-        final long now=System.currentTimeMillis();
+        long now=System.currentTimeMillis();
         g.advance(now);
         if(y>=73&&y<=155){
             hitIcon((int)Math.min(3,x/100),now);
@@ -347,48 +407,74 @@ public final class PetView extends View {
         } else if(!g.alive){
             if(y>170&&y<646){g.reset(now);screen=0;activity.beep();}
         } else if(g.stage==PetGame.EGG){
-            g.say("HATCHING SOON!",now);
+            g.say("СКОРО ВЫЛУПЛЮСЬ!",now);
         } else if(screen==1){
             if(y>=295&&y<=390){g.meal(now);screen=0;activity.beep();}
             else if(y>=397&&y<=492){g.snack(now);screen=0;activity.beep();}
             else screen=0;
         } else if(screen==2){
-            if(y>=284&&y<=476){
-                lastWin=g.play(x<200?0:1,now);
-                resultUntil=now+1400;activity.beep();
-            }else screen=0;
+            if(y>=266&&y<570){
+                int i=((int)y-266)/61;
+                if(i>=0&&i<5){mini=new MiniGames(gamePage*5+i,now);screen=5;rewardPaid=false;activity.beep();}
+            }else if(y>=582&&y<=637){gamePage=1-gamePage;activity.beep();}
+            else if(y>172&&y<645)screen=0;
+        } else if(screen==5){
+            if(mini==null){screen=2;}
+            else if(mini.complete){
+                if(y>=515&&y<=570){mini=new MiniGames(mini.type,now);rewardPaid=false;}
+                else if(y>575&&y<646)screen=2;
+            }else if(y>=307&&y<=548){
+                int cell=-1;
+                if(mini.type==5){if(y>=327&&y<=503)cell=x<200?3:5;}
+                else if(mini.type==9){if(x>=42&&x<=358)cell=Math.min(2,((int)y-320)/78);}
+                else if(x>=32&&x<=371){
+                    int col=Math.min(2,((int)x-32)/113);
+                    int row=Math.min(2,((int)y-307)/80);
+                    cell=row*3+col;
+                    if(mini.type==6)cell=col;
+                }
+                if(cell>=0){
+                    mini.tap(cell,now);
+                    activity.beep();
+                    if(mini.complete&&!rewardPaid){rewardPaid=true;g.rewardGame(mini.won,now);}
+                }
+            }else if(y>580&&y<644)screen=2;
         } else if(screen==3){
-            if(statPage==2 && y>=466&&y<=526&&x>73&&x<327) {
-                if(resetConfirmUntil>now) {g.reset(now);screen=0;resetConfirmUntil=0;activity.beep();}
+            if(statPage==0&&y>=464&&y<=517){activity.namePetAgain();}
+            else if(statPage==2&&y>=466&&y<=526&&x>73&&x<327){
+                if(resetConfirmUntil>now){g.reset(now);screen=0;mini=null;resetConfirmUntil=0;activity.beep();}
                 else resetConfirmUntil=now+5000L;
             } else if(y>175&&y<644){statPage=(statPage+(x<200?2:1))%3;resetConfirmUntil=0;}
             else screen=0;
-        } else if(screen==4){screen=0;
-        } else if(y>172&&y<636){
-            g.say("HELLO!",now);activity.beep();
-        }
+        } else if(screen==4){screen=0;}
+        else if(y>172&&y<636){g.say("ПРИВЕТ!",now);activity.beep();}
         activity.persist();invalidate();return true;
     }
     private void hitIcon(int idx,long now){
         if(idx==7){
-            if(g.needsHelp(now))g.say("I NEED CARE!",now);
-            else g.say("ALL GOOD!",now);
+            if(g.needsHelp(now))g.say("НУЖНА ПОМОЩЬ!",now);
+            else g.say("ВСЁ ХОРОШО!",now);
             activity.beep();return;
         }
-        if(!g.alive){g.say("TAP PET TO RESTART",now);return;}
-        if(g.stage==PetGame.EGG){g.say("HATCHING SOON!",now);return;}
+        if(!g.alive){g.say("НАЖМИ ДЛЯ НОВОГО ЯЙЦА",now);return;}
+        if(g.stage==PetGame.EGG){g.say("СКОРО ВЫЛУПЛЮСЬ!",now);return;}
         screen=0;
         switch(idx){
-            case 0: screen=3;statPage=0;break;
-            case 1: screen=1;break;
-            case 2: g.light(now);break;
-            case 3: screen=2;break;
-            case 4: g.medicine(now);break;
-            case 5: g.clean(now);break;
-            case 6: g.scold(now);break;
+            case 0:screen=3;statPage=0;break;
+            case 1:screen=1;break;
+            case 2:g.light(now);break;
+            case 3:screen=2;gamePage=0;break;
+            case 4:g.medicine(now);break;
+            case 5:g.clean(now);break;
+            case 6:g.scold(now);break;
             default:break;
         }
         activity.beep();
     }
-    public void back(){if(screen!=0){screen=0;invalidate();}else{screen=4;invalidate();}}
+    public void back(){
+        if(screen==5)screen=2;
+        else if(screen!=0)screen=0;
+        else screen=4;
+        invalidate();
+    }
 }

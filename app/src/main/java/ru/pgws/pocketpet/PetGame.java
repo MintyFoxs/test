@@ -12,9 +12,10 @@ public final class PetGame {
     public static final int EGG=0, BABY=1, CHILD=2, TEEN=3, ADULT=4, DEAD=5;
     public long born, lastTick, hatch;
     public int stage, hunger, happy, discipline, weight, dirty, sickness, missed, strain, ticks;
-    public int genes=-1, personality;
+    public int genes=-1, personality, gamesWon;
     public boolean lights, alive;
-    public String notice = "WELCOME!";
+    public String notice = "ПРИВЕТ!";
+    public String name = "";
     public long noticeUntil;
     private final Random random = new Random();
 
@@ -22,8 +23,8 @@ public final class PetGame {
         born=now; lastTick=now; hatch=now+5*MINUTE;
         stage=EGG; hunger=4; happy=4; discipline=0; weight=5; dirty=0;
         sickness=0; missed=0; strain=0; ticks=0; genes=(genes<0||genes>=PetSprites.COUNT) ? random.nextInt(PetSprites.COUNT) : (genes+1+random.nextInt(PetSprites.COUNT-1))%PetSprites.COUNT;
-        personality=0; lights=true; alive=true;
-        say("NEW EGG!",now);
+        personality=0; gamesWon=0; lights=true; alive=true; name="";
+        say("НОВОЕ ЯЙЦО!",now);
     }
 
     public void advance(long now) {
@@ -32,12 +33,12 @@ public final class PetGame {
         if (!alive) { lastTick=now; return; }
         if (stage==EGG && now>=hatch) {
             stage=BABY; hunger=4; happy=4; weight=5;
-            say("IT HATCHED!",now);
+            say("Я ВЫЛУПИЛСЯ!",now);
         }
         // Process elapsed time in 10-minute slices for persistence across restarts.
         // Very long absences end with natural aging rather than a CPU-intensive loop.
         if (now-lastTick > 35*DAY) {
-            alive=false; stage=DEAD; lastTick=now; say("GOODBYE...",now); return;
+            alive=false; stage=DEAD; lastTick=now; say("ДО СВИДАНИЯ...",now); return;
         }
         int total=(int)Math.min((now-lastTick)/STEP,5200L);
         for (int i=0;i<total && alive;i++) {
@@ -46,12 +47,12 @@ public final class PetGame {
             if (lastTick>=hatch && stage==EGG) stage=BABY;
             if (stage==EGG) continue;
             int days=ageDays(lastTick);
-            if (stage==BABY && lastTick-hatch >= HOUR) { stage=CHILD; weight=Math.max(8,weight); say("GROWING!",now); }
-            if (stage==CHILD && lastTick-hatch >= DAY) { stage=TEEN; weight=Math.max(15,weight); say("EVOLVED!",now); }
+            if (stage==BABY && lastTick-hatch >= HOUR) { stage=CHILD; weight=Math.max(8,weight); say("РАСТУ!",now); }
+            if (stage==CHILD && lastTick-hatch >= DAY) { stage=TEEN; weight=Math.max(15,weight); say("НОВЫЙ ОБЛИК!",now); }
             if (stage==TEEN && lastTick-hatch >= 3*DAY) {
                 stage=ADULT; weight=Math.max(20,weight);
                 personality = (missed<=5 && discipline>=2) ? 0 : (missed<=14 ? 1 : 2);
-                say("EVOLVED!",now);
+                say("НОВЫЙ ОБЛИК!",now);
             }
             boolean asleep=isSleepTime(lastTick);
             if (ticks % (asleep ? 14:6)==0) hunger=Math.max(0,hunger-1);
@@ -65,7 +66,7 @@ public final class PetGame {
             if (ticks%12==0 && weight>7) weight--;
             int life=(18 + Math.min(4,discipline) - missed/4 - sickness/2);
             if (days>Math.max(7,life) || sickness>=17 || missed>=45) {
-                alive=false; stage=DEAD; say("GOODBYE...",now);
+                alive=false; stage=DEAD; say("ДО СВИДАНИЯ...",now);
             }
         }
         if (alive && now-lastTick < STEP) { /* fractional step preserved */ }
@@ -88,35 +89,41 @@ public final class PetGame {
     public boolean canCare() {return alive && stage!=EGG;}
     public void meal(long now) {
         if(!canCare())return;
-        if(hunger==4) { say("I'M FULL!",now); return; }
-        hunger++; weight=Math.min(99,weight+1); say("YUMMY!",now);
+        if(hunger==4) { say("Я СЫТ!",now); return; }
+        hunger++; weight=Math.min(99,weight+1); say("ВКУСНО!",now);
     }
     public void snack(long now) {
         if(!canCare())return;
         happy=Math.min(4,happy+1); weight=Math.min(99,weight+2);
         if(weight>40 && random.nextInt(5)==0) sickness++;
-        say("SWEET!",now);
+        say("СЛАДКО!",now);
     }
     public void clean(long now) {
         if(!canCare())return;
-        if (dirty==0) {say("ALL CLEAN!",now);return;}
-        dirty=0; strain=0; say("SPARKLY!",now);
+        if (dirty==0) {say("УЖЕ ЧИСТО!",now);return;}
+        dirty=0; strain=0; say("ЧИСТО!",now);
     }
     public void medicine(long now) {
         if(!canCare())return;
-        if(sickness==0) {say("I'M FINE!",now);return;}
-        sickness=0; say("FEEL BETTER!",now);
+        if(sickness==0) {say("Я ЗДОРОВ!",now);return;}
+        sickness=0; say("МНЕ ЛУЧШЕ!",now);
     }
     public void light(long now) {
         if(!canCare())return;
         lights=!lights;
         if(sleeping(now)&&!lights)strain=0;
-        say(lights?"LIGHT ON":"LIGHT OFF",now);
+        say(lights?"СВЕТ ВКЛ.":"СВЕТ ВЫКЛ.",now);
     }
     public void scold(long now) {
         if(!canCare())return;
-        if(needsHelp(now)) { discipline=Math.min(4,discipline+1); strain=0; say("GOOD PET!",now); }
-        else { happy=Math.max(0,happy-1); say("NOT FAIR!",now); }
+        if(needsHelp(now)) { discipline=Math.min(4,discipline+1); strain=0; say("ХОРОШО!",now); }
+        else { happy=Math.max(0,happy-1); say("НЕЧЕСТНО!",now); }
+    }
+    public void rewardGame(boolean won,long now) {
+        if(!canCare())return;
+        if(won){ happy=Math.min(4,happy+1); gamesWon++; }
+        weight=Math.max(5,weight-1);
+        say(won?"УРА! МНЕ ВЕСЕЛО!":"ПОИГРАЕМ ЕЩЁ!",now);
     }
     public boolean play(int guess,long now) {
         if(!canCare())return false;
@@ -125,7 +132,7 @@ public final class PetGame {
         if(win)happy=Math.min(4,happy+1);
         else happy=Math.max(0,happy-1);
         weight=Math.max(5,weight-1);
-        say(win?"YOU WIN!":"TRY AGAIN!",now);
+        say(win?"ПОБЕДА!":"ПОПРОБУЙ ЕЩЁ!",now);
         return win;
     }
 }

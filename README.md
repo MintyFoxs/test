@@ -1,25 +1,26 @@
-# Pocket Pet 96 — Touch Edition
+# Карманный питомец 96 — v4.0
 
-Full-screen monochrome pixel virtual pet inspired by 1990s digital companions. Independent fan-inspired game, not an official Tamagotchi/Bandai release. All sprites and icons were created for this project.
+Independent, original touchscreen virtual pet inspired by 1990s electronic companions (not affiliated with Tamagotchi or Bandai). Original pixel art, no toy shell, no physical-style A/B/C controls. Russian interface by default.
 
-## Touch controls
-- No toy shell, plastic body, virtual A/B/C buttons, or external control panel.
-- Tap the four icons at the **top** and four icons at the **bottom** directly.
-- Top: STATUS, FOOD, LIGHT, GAME. Bottom: MED, CLEAN, SCOLD, ALERT.
-- FOOD: directly tap MEAL or SNACK.
-- GAME: tap the left or right half.
-- STATUS: tap left/right to switch pages.
-- Clock: tap top header; tap center to return.
-- Android system Back closes sub-screens.
-- After death: tap the pet in the center to start a new egg.
+## New features
 
-## Gameplay
-5 minute egg incubation. Realtime growth through baby, child, teen, adult, 1000 unique procedurally drawn pets (10 ear shapes × 10 faces × 10 body markings). A new random ID is selected for each egg, without repeating the immediately previous ID. Stages preserve each pet’s identity, and care influences adult development. Hunger, happiness, hygiene, sickness, bedtime and light, discipline, attention alerts, minigame, life and rebirth. The game advances by real elapsed time even with the app closed, and stores the pet locally. No ads, registration, or Internet connection.
+* Android **local system notifications** about hatch/naming, illness, dirty environment, hunger, low mood and bedtime. Uses `AlarmManager` with an inexact, battery-friendly check roughly every 30 minutes, reschedules after boot, avoids repeating the same need more often than every two hours. Android Doze and battery restrictions may delay notices. Android 13+ requires POST_NOTIFICATIONS permission; none of this requires Internet, background services, or exact-alarm access.
+* Pet's name is entered after egg hatches (the next time the app is open). Rename in **СТАТУС → ПЕРЕИМЕНОВАТЬ**. If you choose "Позже", the name defaults to «Питомец»; you can rename later. Name and game wins persist with existing save data.
+* 10 **interactive** minigames accessed by touching **ИГРЫ**. Two pages of five: **Найди цель, Пары, Запомни, Реакция, Кроты, Больше/меньше, Лови, Лабиринт, Ритм, Считай**. They require taps on the board, correct decisions, memory, timing, or arithmetic. Success increases happiness and records the win; simply opening a minigame doesn't grant rewards. Failed games don't lower happiness.
+* 1000 distinct generated pet sprites, growth, hunger, hygiene, illness, sleep, attention and real-world-time progression retained from v3. Unique appearance chosen randomly for each egg; eggs have the same visual until they hatch.
 
-## Android compatibility and build
-Android 4.4 (API 19) minimum, target API 36 (Android 16). Android 17/API 37 is expected through API backward compatibility but requires device testing. Java 8 source, AGP 8.13.2, JDK 17, Gradle 8.13, Android SDK 36. `gradle :app:assembleRelease`. Output: `app/build/outputs/apk/release/app-release.apk`.
+## Source and build
 
-The GitHub workflow signs the sideloaded test release APK with the runner's Android debug key. This key changes on different runners; uninstall previous releases if an in-place update reports a signature conflict (uninstalling deletes local pet progress). For production, use a persistent release keystore.
+Android Java, no third-party runtime libraries. Minimum Android 4.4 / API 19. `compileSdk` and `targetSdk` 36. Compatible with newer Android under Android's backward compatibility rules, but real device validation for Android 17 is not yet available. Build on GitHub Actions with Java 17, Gradle 8.13, Android Gradle Plugin 8.13.2 and Android SDK 36. The GitHub Actions workflow runs pure-Java tests for all 10 minigames and 1000 sprite variants before building.
 
-## New egg / variety
-Each egg is assigned a random pet ID from 0000 to 0999. The egg sprite itself is intentionally the same: after hatching the generated pet has visible genetic differences. To start a new pet without waiting for death, open STATUS, go to PAGE 3 and tap NEW EGG twice within five seconds. This deliberately deletes the current pet’s progress. Previous pet saves still load.
+```bash
+gradle :app:assembleRelease --no-daemon
+```
+
+The `release` APK is signed using GitHub runner's ephemeral **debug signing key** solely for sideload testing. **Builds with different signing keys cannot update one another.** Before uninstalling, understand that Android may delete existing locally stored pet data. Persistent production signing is not yet configured.
+
+## Privacy / limitations
+
+All state remains on device. No internet or analytics permissions. Notifications are inexact; force-stopped apps usually cannot receive scheduled checks until reopened. If Android 13+ notification permission is denied, no notifications appear until granted in system settings.
+
+To start a new egg, go to **СТАТУС**, page 3, press **НОВОЕ ЯЙЦО** twice within five seconds. This resets the current pet. Name entry will appear once the new egg hatches.

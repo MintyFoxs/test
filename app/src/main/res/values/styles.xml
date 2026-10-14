@@ -1,9 +1,8 @@
 <resources>
-    <style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar">
-        <item name="android:fontFamily">monospace</item>
-        <item name="android:colorAccent">#C982A2</item>
-        <item name="android:windowLightStatusBar">false</item>
-        <item name="android:windowActionModeOverlay">true</item>
-        <item name="android:windowBackground">#171922</item>
+    <!-- Holo exists on Android 4.4; Material does not. -->
+    <style name="AppTheme" parent="android:style/Theme.Holo.Light.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowBackground">#B1CA9A</item>
+        <item name="android:colorAccent">#2C4030</item>
     </style>
 </resources>

@@ -23,17 +23,18 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.13'
-      - name: Verify 1000 distinct sprites and egg randomization
+      - name: Test 1000 pets and all 10 mini-games
         run: |
           mkdir -p /tmp/pet-tests
-          javac -d /tmp/pet-tests app/src/main/java/ru/pgws/pocketpet/PetGame.java app/src/main/java/ru/pgws/pocketpet/PetSprites.java localtest/TestPets.java
+          javac -d /tmp/pet-tests app/src/main/java/ru/pgws/pocketpet/PetGame.java app/src/main/java/ru/pgws/pocketpet/PetSprites.java app/src/main/java/ru/pgws/pocketpet/MiniGames.java localtest/TestPets.java localtest/TestMiniGames.java
           java -cp /tmp/pet-tests TestPets
+          java -cp /tmp/pet-tests TestMiniGames
       - name: Compile signed installable APK
         run: gradle :app:assembleRelease --stacktrace --no-daemon
       - name: APK checksum
         run: sha256sum app/build/outputs/apk/release/app-release.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: PocketPet96-Android-4.4-to-17
+          name: PocketPet96-v4-RU-Android-4.4plus
           path: app/build/outputs/apk/release/app-release.apk
           retention-days: 30
