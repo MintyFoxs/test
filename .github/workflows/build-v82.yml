@@ -1,0 +1,88 @@
+name: Pocket Pet 96 v8.2 release build
+on:
+  push:
+    branches: [tamagotchi-android]
+    paths:
+      - 'tools/upgrade_v82.py'
+      - '.github/workflows/build-v82.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download and extract known-good v8.1 source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/pocketpet-source
+          gh run download 38586027246 --repo "$GITHUB_REPOSITORY" \
+            --name PocketPet96-v8.1-EpilepsySans-Source \
+            --dir /tmp/pocketpet-source
+          unzip -oq /tmp/pocketpet-source/PocketPet96-v8.1-EpilepsySans-source.zip
+          test -f app/src/main/java/ru/pgws/pocketpet/PetStore.java
+          test -s app/src/main/assets/EpilepsySans.ttf
+          cp app/src/main/java/ru/pgws/pocketpet/PetStore.java /tmp/PetStore.java
+          cp app/src/main/java/ru/pgws/pocketpet/GameClock.java /tmp/GameClock.java
+          cp app/src/main/java/ru/pgws/pocketpet/PetGame.java /tmp/PetGame.java
+      - name: Apply safe v8.2 patch
+        run: |
+          set -euo pipefail
+          python3 tools/upgrade_v82.py
+          cmp /tmp/PetStore.java app/src/main/java/ru/pgws/pocketpet/PetStore.java
+          cmp /tmp/GameClock.java app/src/main/java/ru/pgws/pocketpet/GameClock.java
+          cmp /tmp/PetGame.java app/src/main/java/ru/pgws/pocketpet/PetGame.java
+          grep -q "applicationId 'ru.pgws.pocketpet'" app/build.gradle
+          grep -q "versionCode 11" app/build.gradle
+          grep -q "versionName '8.2.0'" app/build.gradle
+          if grep -q 'signingConfig signingConfigs.debug' app/build.gradle; then exit 1; fi
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools'
+      - name: Android SDK platform and build tools
+        run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Run native pet logic regression tests
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/pet-tests
+          javac -encoding UTF-8 -d /tmp/pet-tests \
+            app/src/main/java/ru/pgws/pocketpet/{PetGame,PetSprites,MiniGames,TouchRegions,Lessons}.java \
+            localtest/{TestPets,TestMiniGames,TestLifecycle,TestInteractionV7,TestLessons}.java
+          for t in TestPets TestMiniGames TestLifecycle TestInteractionV7 TestLessons; do
+            java -cp /tmp/pet-tests "$t"
+          done
+      - name: Compile unsigned APK and unsigned AAB
+        run: gradle :app:assembleRelease :app:bundleRelease --no-daemon --stacktrace
+      - name: Confirm artifacts and preserve sources
+        run: |
+          set -euo pipefail
+          test -s app/build/outputs/apk/release/app-release-unsigned.apk
+          test -s app/build/outputs/bundle/release/app-release.aab
+          unzip -tq app/build/outputs/apk/release/app-release-unsigned.apk
+          unzip -Z1 app/build/outputs/apk/release/app-release-unsigned.apk | grep -F 'assets/EpilepsySans.ttf'
+          sha256sum app/build/outputs/apk/release/app-release-unsigned.apk
+          zip -q -r PocketPet96-v8.2-source.zip README.md settings.gradle build.gradle gradle.properties app/src app/build.gradle localtest tools -x '*.pyc'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PocketPet96-v8.2-unsigned-build
+          path: |
+            app/build/outputs/apk/release/app-release-unsigned.apk
+            app/build/outputs/bundle/release/app-release.aab
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PocketPet96-v8.2-source
+          path: PocketPet96-v8.2-source.zip
+          retention-days: 30
