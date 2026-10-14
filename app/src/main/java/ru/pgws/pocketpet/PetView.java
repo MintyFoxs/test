@@ -30,7 +30,7 @@ public final class PetView extends View {
     // 0 home, 1 food, 2 game catalog, 3 minigame, 4 name keyboard, 5 treatment, 6 training, 7 admin
     private int screen=0,feedDrag=-1,medicineDrops=0,trainingCorrect=0,trainingTarget;
     private float scale,dx,dy,downX,downY,lastX,lastY,pointerX,pointerY,stroke;
-    private boolean petStroke,dragging,keyboardEnglish,miniReward;
+    private boolean petStroke,patAwarded,dragging,keyboardEnglish,miniReward;
     private String typed="";
     private int keyPage=0;
     private long lastResetConfirm;
@@ -452,7 +452,7 @@ public final class PetView extends View {
         int action=e.getActionMasked();long now=GameClock.now(getContext()),wall=System.currentTimeMillis();
         if(action==MotionEvent.ACTION_DOWN){
             downX=lastX=x;downY=lastY=y;pointerX=x;pointerY=y;stroke=0;
-            petStroke=screen==0&&game.canCare()&&game.lights&&x>90&&x<310&&y>273&&y<492;
+            petStroke=screen==0&&game.canCare()&&game.lights&&x>90&&x<310&&y>273&&y<492;patAwarded=false;
             dragging=false;feedDrag=-1;
             if(screen==1&&y>=224&&y<376){feedDrag=x<200?0:1;dragging=true;}
             if(screen==5&&x>=25&&x<153&&y>=235&&y<430)dragging=true;
@@ -463,7 +463,7 @@ public final class PetView extends View {
             pointerX=x;pointerY=y;
             if(petStroke&&x>88&&x<319&&y>272&&y<515){
                 stroke+=Math.abs(x-lastX)+Math.abs(y-lastY);
-                if(stroke>125){game.pet(now);stroke=0;host.beep();host.persist();}
+                if(stroke>125&&!patAwarded){game.pet(now);patAwarded=true;stroke=0;host.beep();host.persist();}
             }
             if(screen==3&&mini!=null){mini.touch(1,x,y,wall);}
             lastX=x;lastY=y;invalidate();return true;
@@ -484,7 +484,7 @@ public final class PetView extends View {
                     if(Math.abs(x-(pooX(i)+20))<28&&Math.abs(y-(pooY(i)+12))<30){game.removeDirt(now);did=true;break;}
                 }
             }
-            if(!did&&petStroke&&stroke<100&&y>276&&y<500){game.say("ПОГЛАДЬ МЕНЯ ЖЕСТОМ!",now);did=true;}
+            if(!did&&petStroke&&!patAwarded&&stroke<100&&y>276&&y<500){game.say("ПОГЛАДЬ МЕНЯ ЖЕСТОМ!",now);did=true;}
         }else if(screen==1){
             if(dragging&&feedDrag>=0&&x>108&&x<293&&y>=399&&y<577){
                 if(feedDrag==0)game.meal(now);else game.snack(now);screen=0;did=true;

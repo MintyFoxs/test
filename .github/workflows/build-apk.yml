@@ -13,7 +13,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Expand project source bundle
         run: |
-          base64 -d source_bundle_v5.tar.xz.b64 | tar xJ
+          if [ ! -f app/src/main/java/ru/pgws/pocketpet/PixelFont.java ]; then base64 -d source_bundle_v5.tar.xz.b64 | tar xJ; fi
           test -f app/src/main/java/ru/pgws/pocketpet/PixelFont.java
           test -s app/src/main/res/drawable-nodpi/pixel_font.png
       - uses: actions/setup-java@v4
