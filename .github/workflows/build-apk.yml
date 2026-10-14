@@ -1,4 +1,4 @@
-name: Build Pocket Pet 96 v7 APK
+name: Build Pocket Pet 96 v7 (navigation fix)
 on:
   push:
     branches: [tamagotchi-android]
@@ -16,6 +16,20 @@ jobs:
           test -s source_v7.tar.xz.b64
           base64 -d source_v7.tar.xz.b64 | tar -xJf -
           test -f app/src/main/java/ru/pgws/pocketpet/TouchRegions.java
+          # Hotfix the double-dispatch: opening the treatment scene must not
+          # immediately invoke its newly visible BACK button in the same UP event.
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('app/src/main/java/ru/pgws/pocketpet/PetView.java')
+          s=p.read_text()
+          a='        boolean did=false;\\n        if(action==MotionEvent.ACTION_CANCEL)'
+          b='        int originalScreen=screen; // Capture the scene where the touch began.\\n        boolean did=false;\\n        if(action==MotionEvent.ACTION_CANCEL)'
+          c='if(y>=693&&y<766&&screen!=0)'
+          d='if(originalScreen!=0&&y>=693&&y<766&&screen!=0)'
+          if a not in s or c not in s: raise SystemExit('Touch fix preconditions not met')
+          p.write_text(s.replace(a,b,1).replace(c,d,1))
+          print('Treatment navigation double-dispatch fixed')
+          PY
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
