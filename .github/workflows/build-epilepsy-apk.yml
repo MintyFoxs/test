@@ -1,0 +1,114 @@
+name: Build Pocket Pet 96 - Epilepsy Sans
+on:
+  push:
+    branches: [tamagotchi-android]
+    paths:
+      - '.github/workflows/build-epilepsy-apk.yml'
+      - 'tools/apply_epilepsy_font.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Expand verified v8 source
+        run: |
+          set -euo pipefail
+          test -s source_v8.tar.xz.b64
+          base64 -d source_v8.tar.xz.b64 | tar -xJf -
+          test -f app/src/main/java/ru/pgws/pocketpet/PixelFont.java
+          test -f tools/apply_epilepsy_font.py
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools'
+      - name: Install Android SDK
+        run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Fetch unmodified original Epilepsy Sans from its author
+        run: |
+          set -euo pipefail
+          mkdir -p app/src/main/assets
+          curl --fail --location --show-error --silent --retry 3 --connect-timeout 15 --max-time 120 \
+            'https://www.kreativekorp.com/swdownload/fonts/relaybm/epilepsy.zip' \
+            --output /tmp/epilepsy.zip
+          unzip -tq /tmp/epilepsy.zip
+          curl --fail --location --show-error --silent --retry 3 \
+            'https://www.kreativekorp.com/software/fonts/FreeLicense.txt' \
+            --output app/src/main/assets/EpilepsySans-LICENSE.txt
+          python3 - <<'PY'
+          import zipfile, pathlib
+          dst=pathlib.Path('app/src/main/assets')
+          with zipfile.ZipFile('/tmp/epilepsy.zip') as z:
+              for key in ('EpilepsySans.ttf','EpilepsySansBold.ttf'):
+                  matches=[n for n in z.namelist() if pathlib.PurePosixPath(n).name.lower()==key.lower()]
+                  if len(matches)!=1:
+                      raise RuntimeError(f'Expected one {key}: got {z.namelist()}')
+                  content=z.read(matches[0])
+                  if len(content)<8000 or content[:4] not in (b'\\x00\\x01\\x00\\x00',b'OTTO',b'ttcf'):
+                      raise RuntimeError(f'Not a valid sfnt font: {key}')
+                  (dst/key).write_bytes(content)
+                  print(key, len(content),'bytes')
+          PY
+          grep -q 'RELAY FONTS FREE USE LICENSE' app/src/main/assets/EpilepsySans-LICENSE.txt
+      - name: Verify Cyrillic and Latin glyphs
+        run: |
+          python3 -m pip install --quiet fonttools
+          python3 - <<'PY'
+          from fontTools.ttLib import TTFont
+          from pathlib import Path
+          required='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789АБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдежзийклмнопрстуфхцчшщъыьэюяЁё'
+          for file in ('EpilepsySans.ttf','EpilepsySansBold.ttf'):
+              cmap=TTFont(str(Path('app/src/main/assets')/file)).getBestCmap()
+              missing=''.join(ch for ch in required if ord(ch) not in cmap)
+              if missing: raise RuntimeError(file+' missing: '+missing)
+              print(file, 'Latin and Russian letters: OK; total Unicode characters',len(cmap))
+          PY
+      - name: Use Epilepsy Sans throughout the game
+        run: |
+          python3 tools/apply_epilepsy_font.py
+          grep -q 'EpilepsySans.ttf' app/src/main/java/ru/pgws/pocketpet/PixelFont.java
+          grep -q 'EpilepsySans.ttf' app/src/main/java/ru/pgws/pocketpet/MemorialCard.java
+      - name: Run existing Java regression tests
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/pet-tests
+          javac -encoding UTF-8 -d /tmp/pet-tests \
+            app/src/main/java/ru/pgws/pocketpet/{PetGame,PetSprites,MiniGames,TouchRegions,Lessons}.java \
+            localtest/{TestPets,TestMiniGames,TestLifecycle,TestInteractionV7,TestLessons}.java
+          for t in TestPets TestMiniGames TestLifecycle TestInteractionV7 TestLessons; do
+            java -cp /tmp/pet-tests "$t"
+          done
+      - name: Build signed APK
+        run: gradle :app:assembleRelease --no-daemon --stacktrace
+      - name: Validate APK and package complete source
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/release/app-release.apk
+          unzip -tq "$APK"
+          test -s "$APK"
+          unzip -Z1 "$APK" | grep -F 'assets/EpilepsySans.ttf'
+          unzip -Z1 "$APK" | grep -F 'assets/EpilepsySans-LICENSE.txt'
+          ! unzip -Z1 "$APK" | grep -F 'LCD5x8H.ttf'
+          sha256sum "$APK"
+          zip -q -r PocketPet96-v8.1-EpilepsySans-source.zip \
+            README.md settings.gradle build.gradle gradle.properties app/src app/build.gradle \
+            localtest tools -x '*.pyc'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PocketPet96-v8.1-EpilepsySans-APK
+          path: app/build/outputs/apk/release/app-release.apk
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PocketPet96-v8.1-EpilepsySans-Source
+          path: PocketPet96-v8.1-EpilepsySans-source.zip
+          retention-days: 30
