@@ -13,9 +13,8 @@ jobs:
     steps:
       - name: Checkout branch
         uses: actions/checkout@v4
-      - name: Restore full Android project
+      - name: Use committed Android project
         run: |
-          base64 --decode source_bundle.tar.gz.b64 | tar -xz
           test -f app/build.gradle
           test -f app/src/main/java/ru/pgws/pocketpet/PetView.java
       - name: Java 17
@@ -42,7 +41,7 @@ jobs:
       - name: Publish APK
         uses: actions/upload-artifact@v4
         with:
-          name: PocketPet96-Android-4.4-to-17
+          name: PocketPet96-Touch-v2-Android-4.4-to-17
           path: app/build/outputs/apk/release/app-release.apk
           retention-days: 30
       - name: Expose readable source files
