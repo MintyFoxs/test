@@ -1,113 +1,81 @@
 package ru.pgws.pocketpet;
 
-/**
- * 1000 guaranteed-different monochrome 20x20 pixel pets.
- * ID 0..999 = 10 head shapes x 10 faces x 10 belly patterns.
- * Each visual gene occupies a different part of the sprite, so every
- * combination has its own bitmap, across baby/child/teen/adult stages.
- * No Bandai sprites or copyrighted character artwork are included.
- */
+/** Cute pixel-art creatures: 10 ear types x 10 faces x 10 cheek/accent patterns. */
 public final class PetSprites {
-    public static final int COUNT = 1000;
-    private static final int SIZE = 20;
+    public static final int COUNT=1000, SIZE=24;
     private PetSprites() {}
-
-    private static void rect(char[][] a, int x1,int y1,int x2,int y2,boolean ink) {
+    private static void r(char[][] a,int x1,int y1,int x2,int y2,char col){
         for(int y=Math.max(0,y1);y<=Math.min(SIZE-1,y2);y++)
-            for(int x=Math.max(0,x1);x<=Math.min(SIZE-1,x2);x++)
-                a[y][x]=ink?'#':'.';
+            for(int x=Math.max(0,x1);x<=Math.min(SIZE-1,x2);x++)a[y][x]=col;
     }
-    private static void dot(char[][] a,int x,int y,boolean ink) {rect(a,x,y,x,y,ink);}
-
-    public static String[] create(int gene, int stage, int personality) {
-        int id=gene%COUNT; if(id<0)id+=COUNT;
-        int head=id/100, face=(id/10)%10, belly=id%10;
+    private static void e(char[][] a,int x,int y,int rx,int ry,char col){
+        for(int yy=Math.max(0,y-ry);yy<=Math.min(SIZE-1,y+ry);yy++)
+            for(int xx=Math.max(0,x-rx);xx<=Math.min(SIZE-1,x+rx);xx++)
+                if(((double)(xx-x)*(xx-x)/(rx*rx)+(double)(yy-y)*(yy-y)/(ry*ry))<=1.08)a[yy][xx]=col;
+    }
+    public static String[] create(int genes,int stage,int personality){
+        int id=((genes%1000)+1000)%1000, ear=id/100,face=(id/10)%10,mark=id%10;
         char[][] a=new char[SIZE][SIZE];
-        for(int y=0;y<SIZE;y++) for(int x=0;x<SIZE;x++) a[y][x]='.';
-
-        // Body silhouette occupies rows 5..18. Stages progressively grow limbs.
-        rect(a,7,5,12,5,true);rect(a,5,6,14,6,true);
-        rect(a,4,7,15,7,true);rect(a,3,8,16,8,true);
-        rect(a,2,9,17,13,true);rect(a,3,14,16,14,true);
-        rect(a,4,15,15,15,true);rect(a,5,16,14,16,true);
-        if(stage>=PetGame.CHILD){
-            rect(a,5,17,8,17,true);rect(a,11,17,14,17,true);
-        } else {rect(a,6,17,13,17,true);}
-        if(stage>=PetGame.TEEN){
-            rect(a,5,18,8,18,true);rect(a,11,18,14,18,true);
+        for(int y=0;y<SIZE;y++)for(int x=0;x<SIZE;x++)a[y][x]='.';
+        // Small round creatures with large expressive faces and rounded limbs.
+        if(stage>PetGame.BABY){ e(a,5,18,3,2,'+');e(a,18,18,3,2,'+'); }
+        e(a,7,21,3,2,'+');e(a,16,21,3,2,'+');
+        e(a,12,14,stage==PetGame.BABY?8:9,stage==PetGame.BABY?7:8,'+');
+        // Ten ear silhouettes, always cute, no spikes on face.
+        switch(ear){
+            case 0:e(a,6,6,2,6,'+');e(a,18,6,2,6,'+');break;  // long bunny
+            case 1:e(a,6,9,4,3,'+');e(a,18,9,4,3,'+');break; // bear
+            case 2:e(a,6,7,3,4,'+');e(a,18,7,3,4,'+');break; // cat
+            case 3:e(a,12,5,3,4,'+');break; // forelock
+            case 4:e(a,6,8,3,3,'+');e(a,18,8,3,3,'+');e(a,12,5,2,3,'+');break;
+            case 5:e(a,4,10,3,2,'+');e(a,20,10,3,2,'+');break; // floppy
+            case 6:e(a,7,7,2,4,'+');e(a,17,7,2,4,'+');break;
+            case 7:e(a,8,5,3,4,'+');e(a,16,5,3,4,'+');break;
+            case 8:e(a,6,9,3,2,'+');e(a,18,9,3,2,'+');e(a,12,5,3,3,'+');break;
+            default:e(a,5,7,2,5,'+');e(a,19,7,2,5,'+');break;
         }
-        if(stage==PetGame.ADULT){
-            rect(a,1,12,3,13,true);rect(a,16,12,18,13,true);
+        // Add a continuous dark outline around the coloured silhouette.
+        char[][] shell=new char[SIZE][SIZE];
+        for(int y=0;y<SIZE;y++)for(int x=0;x<SIZE;x++)shell[y][x]=a[y][x];
+        for(int y=1;y<SIZE-1;y++)for(int x=1;x<SIZE-1;x++)if(a[y][x]=='+'){
+            boolean edge=false;
+            for(int dy=-1;dy<=1;dy++)for(int dx=-1;dx<=1;dx++)if(Math.abs(dx)+Math.abs(dy)==1&&a[y+dy][x+dx]=='.')edge=true;
+            if(edge)shell[y][x]='#';
         }
-
-        // Distinct head/ear shapes, reserved to rows 0..4 (10 patterns).
-        switch(head){
-            case 0: rect(a,5,0,6,5,true);rect(a,13,0,14,5,true);break; // rabbit
-            case 1: rect(a,3,2,6,4,true);rect(a,13,2,16,4,true);break; // bear
-            case 2: rect(a,4,0,4,3,true);rect(a,5,2,6,5,true);rect(a,15,0,15,3,true);rect(a,13,2,14,5,true);break; // devil
-            case 3: rect(a,9,0,10,5,true);rect(a,7,0,12,1,true);break; // antenna
-            case 4: rect(a,6,1,7,4,true);rect(a,8,0,11,5,true);rect(a,12,2,13,4,true);break; // flame
-            case 5: rect(a,3,0,5,2,true);rect(a,4,3,7,5,true);rect(a,14,0,16,2,true);rect(a,12,3,15,5,true);break; // cat
-            case 6: rect(a,2,3,7,4,true);rect(a,12,3,17,4,true);rect(a,0,1,4,2,true);rect(a,15,1,19,2,true);break; // fins
-            case 7: rect(a,8,0,11,1,true);rect(a,7,2,12,2,true);rect(a,6,3,13,5,true);break; // crest
-            case 8: rect(a,2,0,3,2,true);rect(a,8,0,11,2,true);rect(a,16,0,17,2,true);rect(a,3,3,16,5,true);break; // crown
-            default:rect(a,1,0,4,1,true);rect(a,4,2,7,5,true);rect(a,12,2,15,5,true);rect(a,15,0,18,1,true);break; // wings
+        a=shell;
+        // Visible whites make the eyes friendly instead of a solid black silhouette.
+        for(int x: new int[]{8,15}){
+            e(a,x,13,2,2,'.');
+            r(a,x,12,x,13,'#');
+            if(face==4||face==9)r(a,x-1,14,x+1,14,'#');
+            if(face==3 && x==8){r(a,7,13,9,13,'#');r(a,8,12,8,13,'+');}
+            if(face==5){r(a,x,11,x,11,'#');}
+            if(face==6){r(a,x+1,12,x+1,13,'#');}
+            if(face==7){r(a,x-1,12,x-1,13,'#');}
+            if(face==8){r(a,x-1,13,x-1,13,'#');}
+            if(face==1){r(a,x-1,14,x+1,14,'+');}
         }
-
-        // 10 face patterns. White pixel cutouts on black body, separate from ears / belly.
+        // 10 readable mouth expressions, kept in a distinct region.
         switch(face){
-            case 0: // two round dots
-                dot(a,6,9,false);dot(a,13,9,false);dot(a,9,11,false);dot(a,10,11,false);break;
-            case 1: // large happy eyes
-                rect(a,5,9,7,10,false);rect(a,12,9,14,10,false);
-                rect(a,8,12,11,12,false);break;
-            case 2: // vertical eyes
-                rect(a,6,8,6,10,false);rect(a,13,8,13,10,false);
-                rect(a,9,12,10,12,false);break;
-            case 3: // winking
-                rect(a,5,9,7,9,false);rect(a,12,8,13,10,false);dot(a,10,12,false);break;
-            case 4: // sleepy closed eyes
-                rect(a,5,10,8,10,false);rect(a,11,10,14,10,false);
-                dot(a,9,12,false);break;
-            case 5: // starry eyes
-                dot(a,6,8,false);rect(a,5,9,7,9,false);dot(a,6,10,false);
-                dot(a,13,8,false);rect(a,12,9,14,9,false);dot(a,13,10,false);
-                rect(a,9,12,10,12,false);break;
-            case 6: // surprised
-                rect(a,6,9,7,10,false);rect(a,12,9,13,10,false);
-                rect(a,9,11,10,12,false);break;
-            case 7: // angular
-                dot(a,5,8,false);dot(a,6,9,false);dot(a,7,10,false);
-                dot(a,14,8,false);dot(a,13,9,false);dot(a,12,10,false);
-                rect(a,9,12,10,12,false);break;
-            case 8: // round eyes with central brow
-                rect(a,5,8,7,10,false);rect(a,12,8,14,10,false);
-                dot(a,6,9,true);dot(a,13,9,true);dot(a,10,12,false);break;
-            default: // cheeky face
-                rect(a,5,9,6,9,false);rect(a,13,9,14,9,false);
-                rect(a,4,11,6,11,false);rect(a,13,11,15,11,false);
-                rect(a,9,12,10,12,false);break;
+            case 0:r(a,11,17,13,17,'#');r(a,12,18,12,18,'#');break;
+            case 1:r(a,10,17,14,17,'#');r(a,11,18,13,18,'#');break;
+            case 2:r(a,12,17,12,18,'#');break;
+            case 3:r(a,11,17,13,17,'#');break;
+            case 4:r(a,11,17,13,17,'#');r(a,11,18,11,18,'#');break;
+            case 5:r(a,11,17,13,17,'#');r(a,13,18,13,18,'#');break;
+            case 6:r(a,12,17,13,18,'#');break;
+            case 7:r(a,11,18,13,18,'#');r(a,12,17,12,17,'#');break;
+            case 8:r(a,10,18,14,18,'#');break;
+            default:r(a,11,17,13,17,'#');r(a,10,16,10,16,'#');r(a,14,16,14,16,'#');break;
         }
-
-        // 10 distinct lower-torso markings on rows 14..16.
-        switch(belly){
-            case 0: rect(a,9,14,10,16,false);break;
-            case 1: dot(a,7,15,false);dot(a,12,15,false);break;
-            case 2: rect(a,7,14,12,14,false);break;
-            case 3: dot(a,7,14,false);dot(a,12,14,false);rect(a,8,15,11,15,false);dot(a,9,16,false);dot(a,10,16,false);break;
-            case 4: rect(a,6,15,8,15,false);rect(a,11,15,13,15,false);break;
-            case 5: rect(a,8,14,11,16,false);rect(a,9,15,10,15,true);break;
-            case 6: dot(a,7,14,false);dot(a,9,15,false);dot(a,11,14,false);dot(a,13,15,false);break;
-            case 7: rect(a,6,16,13,16,false);break;
-            case 8: rect(a,8,14,8,16,false);rect(a,11,14,11,16,false);break;
-            default:dot(a,6,14,false);dot(a,8,15,false);dot(a,10,16,false);dot(a,12,15,false);dot(a,14,14,false);break;
-        }
-        // Care-dependent variation: stressed adults have drooping paws.
-        if(stage==PetGame.ADULT && personality==2){
-            rect(a,1,14,2,16,true);rect(a,17,14,18,16,true);
-        }
-        String[] out=new String[SIZE];
-        for(int y=0;y<SIZE;y++)out[y]=new String(a[y]);
-        return out;
+        // Distinct visible cheek / hair details. Each mark pattern has its own reserved pixel at 1..10.
+        int px=7+mark;
+        r(a,px,15,px,15,'#'); // signature lives on the face, no stray pixels
+        for(int i=0;i<=mark%3;i++)r(a,5+i,16,5+i,16,'o');
+        for(int i=0;i<((mark/3)%3)+1;i++)r(a,17-i,16,17-i,16,'o');
+        if(stage>=PetGame.TEEN){r(a,4,18,5,19,'#');r(a,18,18,19,19,'#');}
+        if(stage==PetGame.ADULT){r(a,9,22,10,22,'#');r(a,14,22,15,22,'#');}
+        if(personality==2){r(a,11,9,13,9,'o');}
+        String[] out=new String[SIZE];for(int i=0;i<SIZE;i++)out[i]=new String(a[i]);return out;
     }
 }

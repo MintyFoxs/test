@@ -20,6 +20,7 @@ public final class PetStore {
         g.strain=p.getInt("strain",0);g.ticks=p.getInt("ticks",0);
         g.genes=p.getInt("genes",0);g.personality=p.getInt("personality",0);
         g.gamesWon=p.getInt("games_won",0);
+        g.lastPat=p.getLong("last_pat",0);
         g.lights=p.getBoolean("lights",true);g.alive=p.getBoolean("alive",true);
         g.name=p.getString("pet_name","");
         return g;
@@ -32,7 +33,7 @@ public final class PetStore {
                 .putInt("dirty",g.dirty).putInt("sickness",g.sickness).putInt("missed",g.missed)
                 .putInt("strain",g.strain).putInt("ticks",g.ticks)
                 .putInt("genes",g.genes).putInt("personality",g.personality)
-                .putInt("games_won",g.gamesWon)
+                .putInt("games_won",g.gamesWon).putLong("last_pat",g.lastPat)
                 .putBoolean("lights",g.lights).putBoolean("alive",g.alive)
                 .putString("pet_name",g.name).commit();
     }

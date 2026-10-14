@@ -1,157 +1,182 @@
 package ru.pgws.pocketpet;
 
+import java.util.Arrays;
 import java.util.Random;
 
-/** Ten standalone interactive games. Coordinates used by the renderer are 0..8 (3x3).
- *  No rewards are granted until a complete challenge is won. */
+/** Ten distinct randomized touch challenges.  Coordinates are the 400x800 LCD canvas. */
 public final class MiniGames {
-    public static final String[] NAMES={"Найди цель","Пары","Запомни","Реакция","Кроты",
-            "Больше/меньше","Лови","Лабиринт","Ритм","Считай"};
-    public static final String[] HELP={
-            "Нажимай на отмеченную клетку", "Открой и найди три пары",
-            "Запомни три клетки, затем повтори", "Жди сигнала и нажми вовремя",
-            "Лови крота, пока он не спрятался", "Угадай следующее число",
-            "Передвигай корзину под падающий мяч", "Доберись до выхода, минуя стены",
-            "Нажми, когда появится сигнал", "Выбери правильную сумму"};
+    public static final String[] NAMES={"ЛОВИ ЯГОДЫ","ПАРНЫЕ КАРТЫ","СЛУЧАЙНЫЙ ЛАБИРИНТ",
+        "ПИКСЕЛЬ-АРТ","БАРАБАННЫЙ РИТМ","ПО ПОРЯДКУ","КРЕСТИКИ-НОЛИКИ",
+        "ПРЫЖКИ","НАЙДИ ОТЛИЧИЕ","РАЗЛОЖИ ФИГУРЫ"};
+    public static final String[] HELP={"ВЕДИ КОРЗИНУ ПОД ЯГОДОЙ","ОТКРОЙ 6 ПАР",
+        "ПРОВЕДИ К ВЫХОДУ","СКОПИРУЙ УЗОР СПРАВА","БЕЙ В РИТМ МЕТКИ",
+        "НАЖМИ ЧИСЛА 1...9","ВЫИГРАЙ У КОМПЬЮТЕРА","ПРЫГАЙ ПЕРЕД ЯЩИКОМ",
+        "НАЙДИ ЛИШНЮЮ ТОЧКУ СПРАВА","ПЕРЕТАЩИ ФИГУРУ В КОРЗИНУ"};
     public final int type;
-    public int round=0, score=0, errors=0, target=0, cursor=1, value=5;
-    public int selected=-1, first=-1, second=-1;
-    public final int[] cells=new int[9];
-    public final int[] sequence=new int[3];
-    public boolean complete=false, won=false;
-    public long started, deadline, revealUntil, nextAt;
-    private final Random rng;
-    public MiniGames(int gameType,long now){this(gameType,now,new Random());}
-    MiniGames(int gameType,long now,Random random){
-        if(gameType<0||gameType>=10)throw new IllegalArgumentException("game type");
-        type=gameType; started=now; rng=random;
-        target=rng.nextInt(9);
-        if(type==1){
-            int[] pairs={1,1,2,2,3,3};
-            for(int i=pairs.length-1;i>0;i--){int j=rng.nextInt(i+1);int t=pairs[i];pairs[i]=pairs[j];pairs[j]=t;}
-            System.arraycopy(pairs,0,cells,0,6);
+    public final int[] cells=new int[49];
+    public final int[] aux=new int[49];
+    public final int[] bins={0,1,2};
+    public int score,errors,target,selection=-1,second=-1,round,cursor=1,playerX=1,playerY=1,dragX=200;
+    public int sourceType=0,difference=0,pattern=0;
+    public boolean complete,won,dragging,jumped;
+    public long started,deadline,nextAt,revealUntil,jumpUntil,period=1600;
+    private final Random random;
+    public MiniGames(int type,long now){this(type,now,new Random());}
+    public MiniGames(int type,long now,Random random){
+        if(type<0||type>=10)throw new IllegalArgumentException("type");
+        this.type=type;this.random=random;this.started=now;
+        switch(type){
+            case 0:nextFruit(now);break;
+            case 1:for(int i=0;i<12;i++)cells[i]=i/2+1;shuffle(cells,12);break;
+            case 2:maze();break;
+            case 3:pattern();break;
+            case 4:nextBeat(now);break;
+            case 5:for(int i=0;i<16;i++)cells[i]=i<9?i+1:0;shuffle(cells,16);break;
+            case 6:break;
+            case 7:nextJump(now);break;
+            case 8:difference();break;
+            case 9:shuffle(bins,3);sourceType=random.nextInt(3);break;
         }
-        if(type==2){for(int i=0;i<3;i++)sequence[i]=rng.nextInt(9);revealUntil=now+3500;}
-        if(type==3){nextAt=now+1500+rng.nextInt(1700);deadline=nextAt+1000;}
-        if(type==4){deadline=now+2500;}
-        if(type==6){target=rng.nextInt(3);deadline=now+1250;}
-        if(type==7){cursor=0;cells[2]=1;cells[6]=1;}
-        if(type==8){nextAt=now+1100;deadline=nextAt+650;}
-        if(type==9){question();}
     }
     public String title(){return NAMES[type];}
     public String instruction(){return HELP[type];}
-    private void finish(boolean result){complete=true;won=result;}
-    private void penalty(){errors++;if(errors>=3)finish(false);}
-    private void nextTarget(){int old=target; target=(old+1+rng.nextInt(8))%9;}
-    private void question(){
-        int a=1+rng.nextInt(9),b=1+rng.nextInt(9);
-        value=a*100+b; target=rng.nextInt(3);
-        for(int i=0;i<3;i++) cells[i]=a+b+(i-target)*2;
-    }
-    public String prompt(long now){
-        if(complete)return won?"ПОБЕДА! ПИТОМЕЦ РАД!":"НЕ ПОЛУЧИЛОСЬ";
-        switch(type){
-            case 0:return "Поймай: "+(score+1)+" / 5";
-            case 1:return "Открыто пар: "+score+" / 3";
-            case 2:return now<revealUntil?"ЗАПОМИНАЙ!":"Повтори: "+round+" / 3";
-            case 3:return now<nextAt?"ЖДИ...":now<=deadline?"ЖМИ!":"ПОЗДНО!";
-            case 4:return "Попаданий: "+score+" / 5";
-            case 5:return "Число "+value+". Следующее?";
-            case 6:return "Лови мяч! "+score+" / 4";
-            case 7:return "Путь к выходу: "+cursor+" / 8";
-            case 8:return now>=nextAt&&now<=deadline?"ЖМИ В РИТМ!":"Приготовься...";
-            default:return (value/100)+" + "+(value%100)+" = ?";
+    public int goal(){switch(type){case 1:return 6;case 2:case 3:case 6:return 1;case 4:case 9:return 8;case 5:return 9;case 8:return 4;default:return 5;}}
+    private void finish(boolean good){won=good;complete=true;}
+    private void hit(){score++;if(score>=goal())finish(true);}
+    private void miss(){errors++;if(errors>=3)finish(false);}
+    private void shuffle(int[] arr,int size){for(int i=size-1;i>0;i--){int j=random.nextInt(i+1),t=arr[i];arr[i]=arr[j];arr[j]=t;}}
+    private void nextFruit(long now){target=random.nextInt(3);period=1450+random.nextInt(1000);nextAt=now;deadline=now+period;}
+    private void nextBeat(long now){period=600+random.nextInt(650);nextAt=now+period;deadline=nextAt+260;}
+    private void nextJump(long now){period=1400+random.nextInt(1000);nextAt=now;deadline=now+period;jumped=false;}
+    private void maze(){
+        Arrays.fill(cells,1);int[] stack=new int[9];boolean[] seen=new boolean[9];int pos=0,depth=0;
+        seen[0]=true;stack[0]=0;cells[1*7+1]=0;
+        while(depth>=0){
+            int x=pos%3,y=pos/3,n=0;int[] options=new int[4];
+            if(x>0&&!seen[pos-1])options[n++]=pos-1;
+            if(x<2&&!seen[pos+1])options[n++]=pos+1;
+            if(y>0&&!seen[pos-3])options[n++]=pos-3;
+            if(y<2&&!seen[pos+3])options[n++]=pos+3;
+            if(n==0){depth--;if(depth>=0)pos=stack[depth];continue;}
+            int to=options[random.nextInt(n)];int nx=to%3,ny=to/3;
+            cells[(1+y*2)*7+(1+x*2)]=0;
+            cells[(1+y*2+ny*2+1)/2*7+(1+x*2+nx*2+1)/2]=0;
+            cells[(1+ny*2)*7+(1+nx*2)]=0;
+            seen[to]=true;pos=to;stack[++depth]=pos;
         }
+        // Optional extra corridors so maze is not a pure long winding route.
+        for(int i=0;i<2;i++){int idx=1+random.nextInt(5),idy=1+random.nextInt(5);if((idx+idy)%2==1)cells[idy*7+idx]=0;}
     }
-    public int progressGoal(){switch(type){case 1:case 2:case 8:return 3;case 6:case 9:return 4;default:return 5;}}
+    private void pattern(){
+        Arrays.fill(cells,0);Arrays.fill(aux,0);int mode=random.nextInt(4);
+        // 5x5 vertically symmetric stamp with genuinely random target pixels.
+        for(int y=0;y<5;y++)for(int x=0;x<3;x++){
+            int bit=(random.nextInt(5)<(mode==0?3:mode==1?2:mode==2?1:4))?1:0;
+            cells[y*5+x]=bit;cells[y*5+4-x]=bit;
+        }
+        cells[12]=1;
+    }
+    private void difference(){
+        for(int i=0;i<25;i++)cells[i]=random.nextBoolean()?1:0;
+        difference=random.nextInt(25);round++;
+    }
     public void tick(long now){
         if(complete)return;
-        if(type==1 && second>=0 && now>=revealUntil){first=-1;second=-1;}
-        if(type==3 && now>deadline){penalty();if(!complete)nextReaction(now);}
-        if(type==4 && now>deadline){penalty();if(!complete){nextTarget();deadline=now+2500;}}
-        if(type==6 && now>deadline){
-            if(cursor==target)score++;else penalty();
-            round++;
-            if(score>=4)finish(true);
-            else if(round>=7 || score+(7-round)<4)finish(false);
-            else {target=rng.nextInt(3);deadline=now+1250;}
-        }
-        if(type==8 && now>deadline){penalty();if(!complete)nextRhythm(now);}
+        if(type==0){while(now>deadline&&!complete){if(cursor==target)hit();else miss();if(!complete)nextFruit(deadline);}}
+        if(type==1&&second>=0&&now>=revealUntil){selection=-1;second=-1;}
+        if(type==4){while(now>deadline&&!complete){miss();if(!complete)nextBeat(deadline);}}
+        if(type==7){while(now>deadline&&!complete){if(jumped)hit();else miss();if(!complete)nextJump(deadline);}}
     }
-    private void nextReaction(long now){nextAt=now+1000+rng.nextInt(1700);deadline=nextAt+1000;}
-    private void nextRhythm(long now){nextAt=now+900;deadline=nextAt+650;}
-    /** Accepts a cell index 0..8. Timed challenges never complete automatically on touch. */
-    public void tap(int cell,long now){
-        tick(now);
-        if(complete||cell<0||cell>8)return;
+    public String message(long now){
+        if(complete)return won?"ПОБЕДА! + РАДОСТЬ":"ПОПРОБУЙ ЕЩЁ";
+        switch(type){
+            case 0:return "ПЕРЕДВИГАЙ КОРЗИНУ";
+            case 1:return "ИЩИ ДВЕ ОДИНАКОВЫЕ";
+            case 2:return "ПАЛЬЦЕМ ВЕДИ ПО ДОРОГЕ";
+            case 3:return "ПОВТОРИ КАРТИНКУ";
+            case 4:return now>=nextAt&&now<=deadline?"БЕЙ!":"СЛУШАЙ РИТМ...";
+            case 5:return "СЛЕДУЮЩЕЕ: "+(score+1);
+            case 6:return "ТВОЙ ХОД: Х";
+            case 7:return "НАЖМИ ПЕРЕД ПРЕГРАДОЙ";
+            case 8:return "ОТЛИЧИЕ "+(score+1)+" / 4";
+            default:return "ПЕРЕНЕСИ СИМВОЛ";
+        }
+    }
+    /** Action 0 down,1 move,2 up. Called with scaled design coords. */
+    public void touch(int action,float x,float y,long now){
+        tick(now);if(complete)return;
         switch(type){
             case 0:
-                if(cell==target){score++;if(score>=5)finish(true);else nextTarget();}
-                else penalty();break;
+                if(y>345&&y<620){cursor=Math.max(0,Math.min(2,(int)(x/134)));dragX=(int)x;}
+                break;
             case 1:
-                if(cell>=6||cells[cell]==0||second>=0)return;
-                if(first<0){first=cell;return;}
-                if(first==cell)return;
-                second=cell;
-                if(cells[first]==cells[second]){
-                    cells[first]=0;cells[second]=0;first=-1;second=-1;
-                    score++;if(score>=3)finish(true);
-                } else {revealUntil=now+850;penalty();}
+                if(action==2){int col=(int)((x-38)/80),row=(int)((y-280)/80);
+                    if(col>=0&&col<4&&row>=0&&row<3)pair(row*4+col,now);}
                 break;
             case 2:
-                if(now<revealUntil)return;
-                if(cell==sequence[round]){round++;score=round;if(round>=3)finish(true);}
-                else {round=0;score=0;penalty();}
-                break;
+                if(action==2){int cx=(int)((x-64)/39),cy=(int)((y-285)/39);
+                    if(cx>=0&&cy>=0&&cx<7&&cy<7 && Math.abs(cx-playerX)+Math.abs(cy-playerY)==1)move(cx-playerX,cy-playerY);
+                    else if(y>=568&&y<626){if(x<140)move(-1,0);else if(x>260)move(1,0);else move(0,1);}
+                }break;
             case 3:
-                if(now<nextAt){penalty();if(!complete)nextReaction(now);}
-                else if(now<=deadline){score++;if(score>=5)finish(true);else nextReaction(now);}
+                if(action==2){int col=(int)((x-204)/30),row=(int)((y-350)/30);
+                    if(col>=0&&col<5&&row>=0&&row<5){aux[row*5+col]^=1;boolean match=true;
+                        for(int i=0;i<25;i++)if(aux[i]!=cells[i]){match=false;break;}if(match)finish(true);}}
                 break;
             case 4:
-                if(cell==target && now<=deadline){score++;if(score>=5)finish(true);else {nextTarget();deadline=now+2500;}}
-                else penalty();break;
+                if(action==2&&y>330&&y<560){if(now>=nextAt-230&&now<=deadline){hit();if(!complete)nextBeat(now);}else{miss();if(!complete)nextBeat(now);}}
+                break;
             case 5:
-                if(cell!=3&&cell!=5)return;
-                int prev=value;
-                int next=1+rng.nextInt(9);
-                while(next==prev)next=1+rng.nextInt(9);
-                if((cell==3&&next<prev)||(cell==5&&next>prev))score++;
-                else penalty();
-                value=next;round++;
-                if(score>=5)finish(true);
-                else if(round>=7||score+(7-round)<5)finish(false);
+                if(action==2){int col=(int)((x-39)/80),row=(int)((y-286)/74);
+                    if(col>=0&&col<4&&row>=0&&row<4){if(cells[row*4+col]==score+1)hit();else miss();}}
                 break;
             case 6:
-                if(cell<=2)cursor=cell;
+                if(action==2){int col=(int)((x-65)/90),row=(int)((y-299)/90);
+                    if(col>=0&&col<3&&row>=0&&row<3)tic(row*3+col);}
                 break;
             case 7:
-                if(cells[cell]==1)return;
-                if(Math.abs(cell/3-cursor/3)+Math.abs(cell%3-cursor%3)==1){
-                    cursor=cell;round++;
-                    if(cursor==8)finish(true);
-                }else penalty();
+                if(action==2&&y>260&&y<615){if(now>=deadline-780&&now<deadline && !jumped){jumped=true;jumpUntil=deadline+180;}else if(!jumped)miss();}
                 break;
             case 8:
-                if(now<nextAt){penalty();if(!complete)nextRhythm(now);}
-                else if(now<=deadline){score++;if(score>=3)finish(true);else nextRhythm(now);}
+                if(action==2){int col=(int)((x-222)/27),row=(int)((y-350)/27);
+                    if(col>=0&&col<5&&row>=0&&row<5){if(row*5+col==difference){hit();if(!complete)difference();}else miss();}}
                 break;
             case 9:
-                if(cell>2)return;
-                if(cell==target)score++;else penalty();
-                round++;
-                if(score>=4)finish(true);
-                else if(round>=6||score+(6-round)<4)finish(false);
-                else question();break;
+                if(action==0){dragging=(x>148&&x<255&&y>317&&y<423);dragX=(int)x;}
+                else if(action==1&&dragging)dragX=(int)x;
+                else if(action==2){if(dragging&&y>470&&y<605){int bin=Math.min(2,Math.max(0,(int)(x/134)));
+                    if(bins[bin]==sourceType){hit();sourceType=random.nextInt(3);}else miss();}dragging=false;}
+                break;
         }
     }
-    public int currentDisplayCell(long now){
-        if(complete)return -1;
-        if(type==0||type==4)return target;
-        if(type==2 && now<revealUntil)return sequence[((int)((now-started)/1100))%3];
-        if(type==3)return now>=nextAt&&now<=deadline?4:-1;
-        if(type==6)return -1;
-        if(type==8)return now>=nextAt&&now<=deadline?4:-1;
-        return -1;
+    private void pair(int at,long now){
+        if(second>=0||cells[at]==0||at==selection)return;
+        if(selection<0){selection=at;return;}
+        second=at;
+        if(cells[selection]==cells[second]){cells[selection]=0;cells[second]=0;selection=-1;second=-1;hit();}
+        else{revealUntil=now+800;miss();}
     }
+    public void move(int dx,int dy){
+        if(type!=2||complete)return;
+        int x=playerX+dx,y=playerY+dy;
+        if(x<0||y<0||x>=7||y>=7||cells[y*7+x]!=0)return;
+        playerX=x;playerY=y;if(x==5&&y==5)finish(true);
+    }
+    private void tic(int at){
+        if(cells[at]!=0)return;
+        cells[at]=1;
+        if(winLine(1)){finish(true);return;}
+        if(boardFull()){round++;Arrays.fill(cells,0);return;}
+        int move=-1;
+        if(random.nextInt(4)!=0){for(int i=0;i<9;i++)if(cells[i]==0){cells[i]=2;boolean w=winLine(2);cells[i]=0;if(w){move=i;break;}}}
+        if(move<0&&random.nextBoolean()){for(int i=0;i<9;i++)if(cells[i]==0){cells[i]=1;boolean w=winLine(1);cells[i]=0;if(w){move=i;break;}}}
+        if(move<0){int empty=0;for(int i=0;i<9;i++)if(cells[i]==0)empty++;int nth=random.nextInt(empty);
+            for(int i=0;i<9;i++)if(cells[i]==0){if(nth--==0){move=i;break;}}}
+        cells[move]=2;
+        if(winLine(2)){miss();Arrays.fill(cells,0);round++;}
+        else if(boardFull()){Arrays.fill(cells,0);round++;}
+    }
+    private boolean boardFull(){for(int i=0;i<9;i++)if(cells[i]==0)return false;return true;}
+    private boolean winLine(int mark){int[][] lines={{0,1,2},{3,4,5},{6,7,8},{0,3,6},{1,4,7},{2,5,8},{0,4,8},{2,4,6}};
+        for(int[] l:lines)if(cells[l[0]]==mark&&cells[l[1]]==mark&&cells[l[2]]==mark)return true;return false;}
 }

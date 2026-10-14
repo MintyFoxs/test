@@ -13,6 +13,7 @@ public final class PetGame {
     public long born, lastTick, hatch;
     public int stage, hunger, happy, discipline, weight, dirty, sickness, missed, strain, ticks;
     public int genes=-1, personality, gamesWon;
+    public long lastPat;
     public boolean lights, alive;
     public String notice = "ПРИВЕТ!";
     public String name = "";
@@ -23,7 +24,7 @@ public final class PetGame {
         born=now; lastTick=now; hatch=now+5*MINUTE;
         stage=EGG; hunger=4; happy=4; discipline=0; weight=5; dirty=0;
         sickness=0; missed=0; strain=0; ticks=0; genes=(genes<0||genes>=PetSprites.COUNT) ? random.nextInt(PetSprites.COUNT) : (genes+1+random.nextInt(PetSprites.COUNT-1))%PetSprites.COUNT;
-        personality=0; gamesWon=0; lights=true; alive=true; name="";
+        personality=0; gamesWon=0; lastPat=0; lights=true; alive=true; name="";
         say("НОВОЕ ЯЙЦО!",now);
     }
 
@@ -97,6 +98,18 @@ public final class PetGame {
         happy=Math.min(4,happy+1); weight=Math.min(99,weight+2);
         if(weight>40 && random.nextInt(5)==0) sickness++;
         say("СЛАДКО!",now);
+    }
+    public void pet(long now) {
+        if(!canCare())return;
+        if(now-lastPat<30_000L){say("ЕЩЁ ЧУТЬ-ЧУТЬ ПОЗЖЕ!",now);return;}
+        lastPat=now;happy=Math.min(4,happy+1);strain=Math.max(0,strain-1);
+        say("МУР! СПАСИБО!",now);
+    }
+    public void removeDirt(long now){
+        if(!canCare()||dirty<=0)return;
+        dirty=Math.max(0,dirty-1);
+        if(dirty==0)strain=0;
+        say(dirty==0?"ТЕПЕРЬ ЧИСТО!":"ЕЩЁ НЕМНОГО!",now);
     }
     public void clean(long now) {
         if(!canCare())return;

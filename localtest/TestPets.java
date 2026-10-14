@@ -6,8 +6,8 @@ public class TestPets {
             Set<String> seen=new HashSet<>();
             for(int id=0;id<1000;id++) {
                 String[] rows=PetSprites.create(id,stage,0);
-                if(rows.length!=20)throw new AssertionError("row count");
-                for(String r:rows)if(r.length()!=20)throw new AssertionError("wrong row length");
+                if(rows.length!=24)throw new AssertionError("row count");
+                for(String r:rows)if(r.length()!=24)throw new AssertionError("wrong row length");
                 if(!seen.add(String.join("",rows))) throw new AssertionError("Duplicate ID " + id + " at stage " + stage);
             }
             System.out.println("Stage "+stage+": "+seen.size()+" unique sprites OK");
