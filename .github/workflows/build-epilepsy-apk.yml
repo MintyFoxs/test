@@ -53,7 +53,7 @@ jobs:
                   if len(matches)!=1:
                       raise RuntimeError(f'Expected one {key}: got {z.namelist()}')
                   content=z.read(matches[0])
-                  if len(content)<8000 or content[:4] not in (b'\\x00\\x01\\x00\\x00',b'OTTO',b'ttcf'):
+                  if len(content)<8000 or content[:4] not in (bytes((0,1,0,0)),b'OTTO',b'ttcf'):
                       raise RuntimeError(f'Not a valid sfnt font: {key}')
                   (dst/key).write_bytes(content)
                   print(key, len(content),'bytes')
