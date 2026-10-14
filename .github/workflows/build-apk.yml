@@ -1,4 +1,4 @@
-name: Build Android APK v5
+name: Build Pocket Pet 96 v6 APK
 on:
   push:
     branches: [tamagotchi-android]
@@ -11,11 +11,11 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
-      - name: Expand project source bundle
+      - name: Restore v6 source and purr WAV
         run: |
-          if [ ! -f app/src/main/java/ru/pgws/pocketpet/PixelFont.java ]; then base64 -d source_bundle_v5.tar.xz.b64 | tar xJ; fi
-          test -f app/src/main/java/ru/pgws/pocketpet/PixelFont.java
-          test -s app/src/main/res/drawable-nodpi/pixel_font.png
+          base64 -d source_bundle_v6.tar.xz.b64 | tar xJ
+          test -f app/src/main/java/ru/pgws/pocketpet/MemorialCard.java
+          test -s app/src/main/res/raw/purr.wav
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -28,28 +28,39 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.13'
-      - name: Test 1000 cute pets and randomized mini-games
+      - name: Install Pixelify Sans Cyrillic and Latin font and license
+        run: |
+          mkdir -p app/src/main/assets
+          curl --fail --location --retry 4 --retry-delay 2 'https://raw.githubusercontent.com/google/fonts/main/ofl/pixelifysans/PixelifySans%5Bwght%5D.ttf' --output app/src/main/assets/PixelifySans.ttf
+          curl --fail --location --retry 4 --retry-delay 2 'https://raw.githubusercontent.com/google/fonts/main/ofl/pixelifysans/OFL.txt' --output app/src/main/assets/OFL.txt
+          test "$(wc -c < app/src/main/assets/PixelifySans.ttf)" -gt 20000
+          grep -q 'SIL OPEN FONT LICENSE' app/src/main/assets/OFL.txt
+      - name: Verify 1000 variants, 10 minigames, aging, treatment and memory
         run: |
           mkdir -p /tmp/pet-tests
-          javac -encoding UTF-8 -d /tmp/pet-tests app/src/main/java/ru/pgws/pocketpet/PetGame.java app/src/main/java/ru/pgws/pocketpet/PetSprites.java app/src/main/java/ru/pgws/pocketpet/MiniGames.java localtest/TestPets.java localtest/TestMiniGames.java
+          javac -encoding UTF-8 -d /tmp/pet-tests app/src/main/java/ru/pgws/pocketpet/PetGame.java app/src/main/java/ru/pgws/pocketpet/PetSprites.java app/src/main/java/ru/pgws/pocketpet/MiniGames.java localtest/TestPets.java localtest/TestMiniGames.java localtest/TestLifecycle.java
           java -cp /tmp/pet-tests TestPets
           java -cp /tmp/pet-tests TestMiniGames
-      - name: Compile signed installable APK
-        run: gradle :app:assembleRelease --stacktrace --no-daemon
-      - name: APK checksum
-        run: sha256sum app/build/outputs/apk/release/app-release.apk
-      - uses: actions/upload-artifact@v4
+          java -cp /tmp/pet-tests TestLifecycle
+      - name: Assemble signed installable APK
+        run: gradle :app:assembleRelease --no-daemon --stacktrace
+      - name: Verify APK
+        run: |
+          test -s app/build/outputs/apk/release/app-release.apk
+          sha256sum app/build/outputs/apk/release/app-release.apk
+      - name: Upload installable APK
+        uses: actions/upload-artifact@v4
         with:
-          name: PocketPet96-Touch-v5-Android-4.4plus
+          name: PocketPet96-Touch-v6.0.0-Android-4.4plus
           path: app/build/outputs/apk/release/app-release.apk
           retention-days: 30
-      - name: Publish readable project sources
+      - name: Publish readable source and licensed font to branch
         continue-on-error: true
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add README.md .gitignore build.gradle settings.gradle gradle.properties app localtest
+          git add README.md .github app build.gradle settings.gradle gradle.properties localtest
           if ! git diff --cached --quiet; then
-            git commit -m 'Publish v5 readable source [skip ci]'
+            git commit -m 'Publish readable v6 game source and font [skip ci]'
             git push origin HEAD:tamagotchi-android
           fi
