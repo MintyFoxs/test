@@ -22,8 +22,8 @@ jobs:
           from pathlib import Path
           p=Path('app/src/main/java/ru/pgws/pocketpet/PetView.java')
           s=p.read_text()
-          a='        boolean did=false;\\n        if(action==MotionEvent.ACTION_CANCEL)'
-          b='        int originalScreen=screen; // Capture the scene where the touch began.\\n        boolean did=false;\\n        if(action==MotionEvent.ACTION_CANCEL)'
+          a='        boolean did=false;\n        if(action==MotionEvent.ACTION_CANCEL)'
+          b='        int originalScreen=screen; // Capture the scene where the touch began.\n        boolean did=false;\n        if(action==MotionEvent.ACTION_CANCEL)'
           c='if(y>=693&&y<766&&screen!=0)'
           d='if(originalScreen!=0&&y>=693&&y<766&&screen!=0)'
           if a not in s or c not in s: raise SystemExit('Touch fix preconditions not met')
