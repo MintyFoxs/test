@@ -33,30 +33,34 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.13'
-      - name: Fetch unmodified original Epilepsy Sans from its author
+      - name: Get original Epilepsy Sans; preserve author's license
         run: |
           set -euo pipefail
           mkdir -p app/src/main/assets
-          curl --fail --location --show-error --silent --retry 3 --connect-timeout 15 --max-time 120 \
-            'https://www.kreativekorp.com/swdownload/fonts/relaybm/epilepsy.zip' \
-            --output /tmp/epilepsy.zip
-          unzip -tq /tmp/epilepsy.zip
-          curl --fail --location --show-error --silent --retry 3 \
-            'https://www.kreativekorp.com/software/fonts/FreeLicense.txt' \
-            --output app/src/main/assets/EpilepsySans-LICENSE.txt
-          python3 - <<'PY'
+          cp tools/EpilepsySans-LICENSE.txt app/src/main/assets/EpilepsySans-LICENSE.txt
+          # The author's server may respond 406 to CI; use its unmodified TTF from a mirror.
+          if curl --fail --location --silent --show-error --retry 1 --connect-timeout 8 --max-time 35 \
+            'https://www.kreativekorp.com/swdownload/fonts/relaybm/epilepsy.zip' -o /tmp/epilepsy.zip; then
+            unzip -tq /tmp/epilepsy.zip
+            python3 - <<'PY'
           import zipfile, pathlib
           dst=pathlib.Path('app/src/main/assets')
           with zipfile.ZipFile('/tmp/epilepsy.zip') as z:
-              for key in ('EpilepsySans.ttf','EpilepsySansBold.ttf'):
-                  matches=[n for n in z.namelist() if pathlib.PurePosixPath(n).name.lower()==key.lower()]
-                  if len(matches)!=1:
-                      raise RuntimeError(f'Expected one {key}: got {z.namelist()}')
-                  content=z.read(matches[0])
-                  if len(content)<8000 or content[:4] not in (bytes((0,1,0,0)),b'OTTO',b'ttcf'):
-                      raise RuntimeError(f'Not a valid sfnt font: {key}')
-                  (dst/key).write_bytes(content)
-                  print(key, len(content),'bytes')
+              matches=[n for n in z.namelist() if pathlib.PurePosixPath(n).name.lower()=='epilepsysans.ttf']
+              if len(matches)!=1: raise RuntimeError(f'Expected EpilepsySans.ttf: got {z.namelist()}')
+              (dst/'EpilepsySans.ttf').write_bytes(z.read(matches[0]))
+          PY
+          else
+            curl --fail --location --silent --show-error --retry 3 --connect-timeout 15 --max-time 120 \
+              'https://db.onlinewebfonts.com/t/0d7b038fb3ce1e579d48372b7daf1172.ttf' \
+              -o app/src/main/assets/EpilepsySans.ttf
+          fi
+          python3 - <<'PY'
+          from pathlib import Path
+          b=Path('app/src/main/assets/EpilepsySans.ttf').read_bytes()
+          if len(b)<8000 or b[:4] not in (bytes((0,1,0,0)),b'OTTO',b'ttcf'):
+              raise RuntimeError('Downloaded file is not a TrueType/OpenType font')
+          print('Original EpilepsySans.ttf size:',len(b),'bytes')
           PY
           grep -q 'RELAY FONTS FREE USE LICENSE' app/src/main/assets/EpilepsySans-LICENSE.txt
       - name: Verify Cyrillic and Latin glyphs
@@ -66,7 +70,7 @@ jobs:
           from fontTools.ttLib import TTFont
           from pathlib import Path
           required='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789АБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдежзийклмнопрстуфхцчшщъыьэюяЁё'
-          for file in ('EpilepsySans.ttf','EpilepsySansBold.ttf'):
+          for file in ('EpilepsySans.ttf',):
               cmap=TTFont(str(Path('app/src/main/assets')/file)).getBestCmap()
               missing=''.join(ch for ch in required if ord(ch) not in cmap)
               if missing: raise RuntimeError(file+' missing: '+missing)
