@@ -1,16 +1,25 @@
-# Pocket Pet 96 — Touch Edition (v2.0.0)
+# Pocket Pet 96 — Touch Edition
 
-A fully fullscreen, monochrome, touchscreen virtual pet inspired by 1990s digital companion toys. Independent project, not an official Tamagotchi/Bandai product. Original pixel graphics.
+Full-screen monochrome pixel virtual pet inspired by 1990s digital companions. Independent fan-inspired game, not an official Tamagotchi/Bandai release. All sprites and icons were created for this project.
 
-## Controls
-Tap the 4 top and 4 bottom LCD icons directly. No virtual plastic shell, no A/B/C hardware buttons.
-Top: STATUS, FOOD, LIGHT, GAME. Bottom: MED, CLEAN, SCOLD, ALERT.
-Food: tap MEAL or SNACK. Game: tap LEFT or RIGHT. Status: tap left/right to change pages. Tap the clock header to open the clock; tap the screen to dismiss. Android back closes an opened screen. After the pet dies, tap its ghost to restart.
+## Touch controls
+- No toy shell, plastic body, virtual A/B/C buttons, or external control panel.
+- Tap the four icons at the **top** and four icons at the **bottom** directly.
+- Top: STATUS, FOOD, LIGHT, GAME. Bottom: MED, CLEAN, SCOLD, ALERT.
+- FOOD: directly tap MEAL or SNACK.
+- GAME: tap the left or right half.
+- STATUS: tap left/right to switch pages.
+- Clock: tap top header; tap center to return.
+- Android system Back closes sub-screens.
+- After death: tap the pet in the center to start a new egg.
 
 ## Gameplay
-Egg hatches after 5 minutes. Real-time progression, hunger, mood, cleanliness, sickness, discipline, light and sleeping, growth paths, weight, death and restarting. Pet state is saved on device and progresses while the game is closed. No ads, permissions, or network connection.
+5 minute egg incubation. Realtime growth through baby, child, teen, adult, 1000 unique procedurally drawn pets (10 ear shapes × 10 faces × 10 body markings). A new random ID is selected for each egg, without repeating the immediately previous ID. Stages preserve each pet’s identity, and care influences adult development. Hunger, happiness, hygiene, sickness, bedtime and light, discipline, attention alerts, minigame, life and rebirth. The game advances by real elapsed time even with the app closed, and stores the pet locally. No ads, registration, or Internet connection.
 
-## Build
-Minimum Android 4.4 (API 19), target Android 16 (API 36). Android 17/API 37 is expected to run through compatibility but is not device-tested. Java 8 source, Gradle 8.13, AGP 8.13.2, JDK 17, Android SDK 36. Run `gradle :app:assembleRelease`.
+## Android compatibility and build
+Android 4.4 (API 19) minimum, target API 36 (Android 16). Android 17/API 37 is expected through API backward compatibility but requires device testing. Java 8 source, AGP 8.13.2, JDK 17, Gradle 8.13, Android SDK 36. `gradle :app:assembleRelease`. Output: `app/build/outputs/apk/release/app-release.apk`.
 
-GitHub Actions creates a debug-key-signed APK intended for sideload testing. Because the ephemeral signing key changes between runners, uninstall previous versions when an in-place upgrade reports a signature conflict; uninstalling clears saved progress.
+The GitHub workflow signs the sideloaded test release APK with the runner's Android debug key. This key changes on different runners; uninstall previous releases if an in-place update reports a signature conflict (uninstalling deletes local pet progress). For production, use a persistent release keystore.
+
+## New egg / variety
+Each egg is assigned a random pet ID from 0000 to 0999. The egg sprite itself is intentionally the same: after hatching the generated pet has visible genetic differences. To start a new pet without waiting for death, open STATUS, go to PAGE 3 and tap NEW EGG twice within five seconds. This deliberately deletes the current pet’s progress. Previous pet saves still load.

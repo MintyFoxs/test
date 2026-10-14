@@ -29,6 +29,9 @@ public final class PetView extends View {
     private int screen=0, statPage=0;
     private boolean lastWin;
     private long resultUntil;
+    private long resetConfirmUntil;
+    private int cachedGene=-1, cachedStage=-1, cachedPersonality=-1;
+    private String[] cachedPet;
     private float scale,dx,dy;
     private final SimpleDateFormat clock = new SimpleDateFormat("HH:mm", Locale.getDefault());
     private static final String[] EGG={
@@ -211,6 +214,7 @@ public final class PetView extends View {
             txt(c,"EGG IS WARMING",200,453,17,INK,true);
             int left=(int)Math.max(0,(g.hatch-now+59999)/PetGame.MINUTE);
             txt(c,"HATCH IN "+left+" MIN",200,481,14,INK,true);
+            txt(c,"PET #"+String.format(Locale.US,"%04d",g.genes)+" / 1000",200,527,13,INK,true);
             return;
         }
         switch(screen){
@@ -229,7 +233,7 @@ public final class PetView extends View {
             txt(c,"SLEEPING",200,404,20,INK,true);
         } else {
             int bob=((now/400)%3==0)?5:0;
-            sprite(c,chooseSprite(),120,264+bob,10,(now/3700)%8==0);
+            sprite(c,chooseSprite(),100,245+bob,10,(now/3700)%8==0);
             if(g.dirty>0)drawPoo(c,70,469);
             if(g.dirty>1)drawPoo(c,301,477);
             if(g.sickness>0)txt(c,"+",326,278,25,INK,true);
@@ -239,6 +243,7 @@ public final class PetView extends View {
         if(g.noticeUntil>now) txt(c,g.notice,200,568,21,INK,true);
         else txt(c,g.sleeping(now)?"SLEEP TIME":"TAKE GOOD CARE!",200,563,15,INK,true);
         txt(c,"TAP THE ICONS TO CARE",200,600,12,DIM,true);
+        txt(c,"PET #"+String.format(Locale.US,"%04d",g.genes)+" / 1000",200,624,11,INK,true);
     }
     private void drawFood(Canvas c) {
         txt(c,"FOOD",200,224,25,INK,true);
@@ -272,6 +277,7 @@ public final class PetView extends View {
             txt(c,"AGE   "+g.ageDays(now)+" DAYS",200,326,20,INK,true);
             txt(c,"WEIGHT   "+g.weight+" G",200,373,18,INK,true);
             txt(c,"CARE MISSES  "+g.missed,200,425,15,INK,true);
+            txt(c,"PET #"+String.format(Locale.US,"%04d",g.genes),200,465,16,INK,true);
         } else if(statPage==1){
             txt(c,"HUNGER",200,321,18,INK,true);
             hearts(c,g.hunger,144,344);
@@ -280,7 +286,9 @@ public final class PetView extends View {
         } else {
             txt(c,"DISCIPLINE",200,324,18,INK,true);
             hearts(c,g.discipline,144,349);
-            txt(c,"HEALTH: "+(g.sickness>0?"SICK":"HEALTHY"),200,433,18,INK,true);
+            txt(c,"HEALTH: "+(g.sickness>0?"SICK":"HEALTHY"),200,422,18,INK,true);
+            outline(c,INK,73,466,327,526,2);
+            txt(c,resetConfirmUntil>now?"TAP AGAIN TO RESET":"NEW EGG",200,502,17,INK,true);
         }
         txt(c,"<  PREVIOUS     NEXT  >",200,556,17,INK,true);
         txt(c,"TAP LEFT / RIGHT TO TURN",200,603,11,DIM,true);
@@ -305,13 +313,11 @@ public final class PetView extends View {
         }
     }
     private String[] chooseSprite() {
-        switch(g.stage){
-            case PetGame.BABY:return BABY;
-            case PetGame.CHILD:return CHILD;
-            case PetGame.TEEN:return TEEN;
-            case PetGame.ADULT:return g.personality==0?ADULT_A:(g.personality==1?ADULT_B:ADULT_C);
-            default:return EGG;
+        if(cachedPet==null || cachedGene!=g.genes || cachedStage!=g.stage || cachedPersonality!=g.personality) {
+            cachedGene=g.genes; cachedStage=g.stage; cachedPersonality=g.personality;
+            cachedPet=PetSprites.create(g.genes,g.stage,g.personality);
         }
+        return cachedPet;
     }
     private void sprite(Canvas c,String[] rows,float x,float y,float s,boolean blink) {
         for(int yy=0;yy<rows.length;yy++){
@@ -352,7 +358,10 @@ public final class PetView extends View {
                 resultUntil=now+1400;activity.beep();
             }else screen=0;
         } else if(screen==3){
-            if(y>175&&y<644)statPage=(statPage+(x<200?2:1))%3;
+            if(statPage==2 && y>=466&&y<=526&&x>73&&x<327) {
+                if(resetConfirmUntil>now) {g.reset(now);screen=0;resetConfirmUntil=0;activity.beep();}
+                else resetConfirmUntil=now+5000L;
+            } else if(y>175&&y<644){statPage=(statPage+(x<200?2:1))%3;resetConfirmUntil=0;}
             else screen=0;
         } else if(screen==4){screen=0;
         } else if(y>172&&y<636){

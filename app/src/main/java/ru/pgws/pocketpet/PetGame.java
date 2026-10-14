@@ -12,7 +12,7 @@ public final class PetGame {
     public static final int EGG=0, BABY=1, CHILD=2, TEEN=3, ADULT=4, DEAD=5;
     public long born, lastTick, hatch;
     public int stage, hunger, happy, discipline, weight, dirty, sickness, missed, strain, ticks;
-    public int genes, personality;
+    public int genes=-1, personality;
     public boolean lights, alive;
     public String notice = "WELCOME!";
     public long noticeUntil;
@@ -21,7 +21,7 @@ public final class PetGame {
     public void reset(long now) {
         born=now; lastTick=now; hatch=now+5*MINUTE;
         stage=EGG; hunger=4; happy=4; discipline=0; weight=5; dirty=0;
-        sickness=0; missed=0; strain=0; ticks=0; genes=random.nextInt(4);
+        sickness=0; missed=0; strain=0; ticks=0; genes=(genes<0||genes>=PetSprites.COUNT) ? random.nextInt(PetSprites.COUNT) : (genes+1+random.nextInt(PetSprites.COUNT-1))%PetSprites.COUNT;
         personality=0; lights=true; alive=true;
         say("NEW EGG!",now);
     }
