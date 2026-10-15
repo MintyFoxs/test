@@ -40,3 +40,5 @@ s=g.read_text(encoding="utf-8")
 assert "versionCode 14" in s and "versionName '8.5.3'" in s
 g.write_text(s.replace("versionName '8.5.3'","versionName '8.5.4'"),encoding="utf-8")
 print("v8.5.4: real DNS-independent HTTPS fallback, unchanged versionCode 14 and saves")
+
+# Strict SAN DNS names are checked after the standard platform TLS chain validation.
