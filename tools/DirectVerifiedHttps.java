@@ -13,6 +13,23 @@ public final class DirectVerifiedHttps {
         Response(int status,byte[] body){this.status=status;this.body=body;}
     }
     private DirectVerifiedHttps(){}
+    /** Strict SAN DNS match for fixed first-party hosts. Certificate chain is verified by JSSE. */
+    public static boolean verifyPeerDnsName(javax.net.ssl.SSLSession session,String expected)throws IOException {
+        try{
+            java.security.cert.Certificate[] chain=session.getPeerCertificates();
+            if(chain.length<1 || !(chain[0] instanceof java.security.cert.X509Certificate))return false;
+            java.security.cert.X509Certificate leaf=(java.security.cert.X509Certificate)chain[0];
+            java.util.Collection<java.util.List<?>> names=leaf.getSubjectAlternativeNames();
+            if(names==null)return false;
+            for(java.util.List<?> e:names){
+                if(e.size()>1 && Integer.valueOf(2).equals(e.get(0)) &&
+                    expected.equalsIgnoreCase(String.valueOf(e.get(1))))return true;
+            }
+            return false;
+        }catch(java.security.cert.CertificateException err){
+            throw new IOException("Invalid TLS certificate subject alternative names",err);
+        }
+    }
     public static Response readResponse(InputStream in,int maxBytes)throws IOException {
         if(maxBytes<=0 || maxBytes>16*1024*1024)throw new IOException("Invalid response limit");
         String start=readLine(in);
