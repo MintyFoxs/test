@@ -51,7 +51,7 @@ old='''            try{
 replace_exact(old,"            */\n")
 # Safer to use a shared sender that connects with normal DNS, then retries on UnknownHostException.
 replace_exact(
-    '    /** Two independently certified MYMP hostnames; never fall back to plain HTTP. */',
+    '    public static JSONObject checkUpdate(Context ctx)throws Exception{',
     '''    private static boolean postSnapshot(String base,byte[] body)throws Exception{
         try{return postSnapshotOnce(base,body,false);}
         catch(UnknownHostException dns){
@@ -74,7 +74,7 @@ replace_exact(
             return false;
         }finally{c.disconnect();}
     }
-    /** Two independently certified MYMP hostnames; never fall back to plain HTTP. */'''
+    public static JSONObject checkUpdate(Context ctx)throws Exception{'''
 )
 replace_exact(
     '''    private static JSONObject checkUpdateAt(Context ctx,String base)throws Exception{
