@@ -56,17 +56,17 @@ insert='''
             try{
                 int version=ctx.getPackageManager().getPackageInfo(ctx.getPackageName(),0).versionCode;
                 JSONObject upd=NetClient.checkUpdate(ctx);
-                result="Приложение: "+version+" / 8.5.2\n"+
-                    "Согласие: "+(NetworkSettings.consent(ctx)?"ДА":"НЕТ")+"\n"+
+                result="Приложение: "+version+" / 8.5.2\\n"+
+                    "Согласие: "+(NetworkSettings.consent(ctx)?"ДА":"НЕТ")+"\\n"+
                     "Ответ API: "+(upd==null?"НЕТ НОВОЙ ВЕРСИИ":
                         "НОВАЯ "+upd.optInt("versionCode")+" / "+upd.optString("versionName"));
             }catch(Exception e){
-                result="ОШИБКА СОЕДИНЕНИЯ\n"+e.getClass().getSimpleName()+
-                    "\n"+String.valueOf(e.getMessage());
+                result="ОШИБКА СОЕДИНЕНИЯ\\n"+e.getClass().getSimpleName()+
+                    "\\n"+String.valueOf(e.getMessage());
                 Throwable cause=e.getCause();
-                if(cause!=null)result+="\nПричина: "+cause.getClass().getSimpleName()+
+                if(cause!=null)result+="\\nПричина: "+cause.getClass().getSimpleName()+
                    " / "+String.valueOf(cause.getMessage());
-                result+="\nAndroid "+android.os.Build.VERSION.RELEASE;
+                result+="\\nAndroid "+android.os.Build.VERSION.RELEASE;
             }
             final String report=result;
             runOnUiThread(()->{
@@ -78,7 +78,7 @@ insert='''
 '''
 point='    private void downloadUpdate(JSONObject manifest){'
 assert point in s
-s=s.replace(point,insert+'\n'+point)
+s=s.replace(point,insert+'\\n'+point)
 p.write_text(s,encoding='utf-8')
 g=Path('app/build.gradle')
 s=g.read_text(encoding='utf-8')
