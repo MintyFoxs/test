@@ -19,6 +19,7 @@ jobs:
           set -euo pipefail
           base64 --decode source_v84.tar.xz.b64 | tar -xJf -
           base64 --decode source_patch_v85.tar.xz.b64 | tar -xJf - --strip-components=1
+          python3 -c "from pathlib import Path; p=Path('app/src/main/java/ru/pgws/pocketpet/MainActivity.java'); s=p.read_text(); s=s.replace('IP.'+chr(10)+'ПРАВИЛА', 'IP.'+chr(92)+'n'+'ПРАВИЛА'); p.write_text(s)"
           test -s app/src/main/java/ru/pgws/pocketpet/MainActivity.java
           grep -q 'versionCode 14' app/build.gradle
           grep -q "applicationId 'ru.pgws.pocketpet'" app/build.gradle
