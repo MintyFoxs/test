@@ -20,6 +20,7 @@ jobs:
           base64 --decode source_v84.tar.xz.b64 | tar -xJ
           test -f app/src/main/java/ru/pgws/pocketpet/MainActivity.java
           test -f app/src/main/java/ru/pgws/pocketpet/NetClient.java
+          sed -i 's/NetworkSettings.consent(this)) new Thread(()->NetClient.sendSnapshot(getApplicationContext(),true)/NetworkSettings.consent(MainActivity.this)) new Thread(()->NetClient.sendSnapshot(MainActivity.this.getApplicationContext(),true)/' app/src/main/java/ru/pgws/pocketpet/MainActivity.java
           grep -F -q '"https://stat.mymp.fun"' app/src/main/java/ru/pgws/pocketpet/NetworkSettings.java
           ! grep -q 'drawNetwork' app/src/main/java/ru/pgws/pocketpet/PetView.java
           grep -q 'versionCode 13' app/build.gradle
