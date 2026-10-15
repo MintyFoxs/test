@@ -1,0 +1,25 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'ru.pgws.pocketpet'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId 'ru.pgws.pocketpet'
+        minSdk 19
+        targetSdk 36
+        versionCode 12
+        versionName '8.3.0'
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+    }
+}
