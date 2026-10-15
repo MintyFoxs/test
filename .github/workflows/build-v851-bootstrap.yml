@@ -1,0 +1,71 @@
+name: PocketPet 96 v8.5.1 bootstrap updater
+on:
+  push:
+    branches: [tamagotchi-android]
+    paths:
+      - '.github/workflows/build-v851-bootstrap.yml'
+      - 'tools/patch_v851.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Expand v8.5 known-good source and patch update checker
+        run: |
+          set -euo pipefail
+          base64 --decode source_v84.tar.xz.b64 | tar -xJf -
+          base64 --decode source_patch_v85.tar.xz.b64 | tar -xJf - --strip-components=1
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('app/src/main/java/ru/pgws/pocketpet/MainActivity.java')
+          s=p.read_text(encoding='utf-8')
+          s=s.replace('IP.'+chr(10)+'ПРАВИЛА', 'IP.'+chr(92)+'n'+'ПРАВИЛА')
+          p.write_text(s,encoding='utf-8')
+          PY
+          python3 tools/patch_v851.py
+          test -f app/src/main/assets/EpilepsySans.ttf
+          grep -q 'versionCode 14' app/build.gradle
+          grep -q "versionName '8.5.1'" app/build.gradle
+          grep -q "applicationId 'ru.pgws.pocketpet'" app/build.gradle
+          grep -q 'https://mymp.fun' app/src/main/java/ru/pgws/pocketpet/NetClient.java
+          ! grep -q '"Сервер обновлений пока недоступен"' app/src/main/java/ru/pgws/pocketpet/MainActivity.java
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools'
+      - name: Prepare SDK
+        run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Test original saved game logic
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/pet-tests
+          javac -encoding UTF-8 -d /tmp/pet-tests \
+            app/src/main/java/ru/pgws/pocketpet/{PetGame,PetSprites,MiniGames,TouchRegions,Lessons}.java \
+            localtest/*.java
+          for t in TestPets TestMiniGames TestLifecycle TestInteractionV7 TestLessons; do
+            java -cp /tmp/pet-tests "$t"
+          done
+      - name: Compile unchanged save format and fixed update logic
+        run: gradle :app:assembleRelease --no-daemon --stacktrace
+      - name: Verify APK output
+        run: |
+          set -euo pipefail
+          apk=app/build/outputs/apk/release/app-release-unsigned.apk
+          test -s "$apk"
+          unzip -tq "$apk"
+          sha256sum "$apk"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PocketPet96-v8.5.1-BOOTSTRAP-unsigned
+          path: app/build/outputs/apk/release/app-release-unsigned.apk
+          retention-days: 30
