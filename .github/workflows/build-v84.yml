@@ -1,0 +1,57 @@
+name: Pocket Pet 96 Android v8.4
+on:
+  push:
+    branches: [tamagotchi-android]
+    paths:
+      - 'source_v84.tar.xz.b64'
+      - '.github/workflows/build-v84.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore Android sources
+        run: |
+          set -euo pipefail
+          base64 --decode source_v84.tar.xz.b64 | tar -xJ
+          test -f app/src/main/java/ru/pgws/pocketpet/MainActivity.java
+          test -f app/src/main/java/ru/pgws/pocketpet/NetClient.java
+          grep -F -q '"https://stat.mymp.fun"' app/src/main/java/ru/pgws/pocketpet/NetworkSettings.java
+          ! grep -q 'drawNetwork' app/src/main/java/ru/pgws/pocketpet/PetView.java
+          grep -q 'versionCode 13' app/build.gradle
+          grep -q "applicationId 'ru.pgws.pocketpet'" app/build.gradle
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools'
+      - name: Android SDK
+        run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Regression tests
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/pet-tests
+          javac -encoding UTF-8 -d /tmp/pet-tests app/src/main/java/ru/pgws/pocketpet/{PetGame,PetSprites,MiniGames,TouchRegions,Lessons}.java localtest/*.java
+          for t in TestPets TestMiniGames TestLifecycle TestInteractionV7 TestLessons; do java -cp /tmp/pet-tests "$t"; done
+      - name: Build unsigned release APK
+        run: gradle :app:assembleRelease --no-daemon --stacktrace
+      - name: Verify release artifacts
+        run: |
+          set -euo pipefail
+          test -s app/build/outputs/apk/release/app-release-unsigned.apk
+          unzip -tq app/build/outputs/apk/release/app-release-unsigned.apk
+          sha256sum app/build/outputs/apk/release/app-release-unsigned.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PocketPet96-v8.4-unsigned-APK
+          path: app/build/outputs/apk/release/app-release-unsigned.apk
+          retention-days: 30
