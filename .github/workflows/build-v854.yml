@@ -1,0 +1,77 @@
+name: Pocket Pet 96 v8.5.4 resolver-independent HTTPS
+on:
+  push:
+    branches: [tamagotchi-android]
+    paths: ['tools/patch_v854.py','.github/workflows/build-v854.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore application without altering pet saves
+        run: |
+          set -euo pipefail
+          base64 --decode source_v84.tar.xz.b64 | tar -xJf -
+          base64 --decode source_patch_v85.tar.xz.b64 | tar -xJf - --strip-components=1
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('app/src/main/java/ru/pgws/pocketpet/MainActivity.java')
+          s=p.read_text(encoding='utf-8')
+          p.write_text(s.replace('IP.'+chr(10)+'ПРАВИЛА','IP.'+chr(92)+'n'+'ПРАВИЛА'),encoding='utf-8')
+          PY
+          cp app/src/main/java/ru/pgws/pocketpet/PetStore.java /tmp/PetStore.java
+          cp app/src/main/java/ru/pgws/pocketpet/PetGame.java /tmp/PetGame.java
+          python3 tools/patch_v851.py
+          python3 tools/patch_v852.py
+          python3 tools/patch_v853.py
+          python3 tools/patch_v854.py
+          cmp app/src/main/java/ru/pgws/pocketpet/PetStore.java /tmp/PetStore.java
+          cmp app/src/main/java/ru/pgws/pocketpet/PetGame.java /tmp/PetGame.java
+          grep -q "applicationId 'ru.pgws.pocketpet'" app/build.gradle
+          grep -q "versionCode 14" app/build.gradle
+          grep -q "versionName '8.5.4'" app/build.gradle
+          test -s app/src/main/assets/EpilepsySans.ttf
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools'
+      - run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Test resolver-independent HTTPS decoder
+        run: |
+          mkdir -p /tmp/direct-tls-test
+          javac -encoding UTF-8 -d /tmp/direct-tls-test \
+            app/src/main/java/ru/pgws/pocketpet/{DirectVerifiedHttps,DirectTlsHttpURLConnection}.java \
+            tools/TestDirectVerifiedHttps.java
+          java -cp /tmp/direct-tls-test TestDirectVerifiedHttps
+      - name: Test gameplay save compatibility
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/pet-tests
+          javac -encoding UTF-8 -d /tmp/pet-tests \
+            app/src/main/java/ru/pgws/pocketpet/{PetGame,PetSprites,MiniGames,TouchRegions,Lessons}.java localtest/*.java
+          for t in TestPets TestMiniGames TestLifecycle TestInteractionV7 TestLessons; do
+            java -cp /tmp/pet-tests "$t"
+          done
+      - name: Assemble unsigned release
+        run: gradle :app:assembleRelease --no-daemon --stacktrace
+      - name: Verify APK integrity
+        run: |
+          set -euo pipefail
+          test -s app/build/outputs/apk/release/app-release-unsigned.apk
+          unzip -tq app/build/outputs/apk/release/app-release-unsigned.apk
+          sha256sum app/build/outputs/apk/release/app-release-unsigned.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PocketPet96-v8.5.4-direct-tls-unsigned
+          path: app/build/outputs/apk/release/app-release-unsigned.apk
+          retention-days: 30
