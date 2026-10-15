@@ -78,7 +78,7 @@ insert='''
 '''
 point='    private void downloadUpdate(JSONObject manifest){'
 assert point in s
-s=s.replace(point,insert+'\\n'+point)
+s=s.replace(point,insert+'\n'+point)
 p.write_text(s,encoding='utf-8')
 g=Path('app/build.gradle')
 s=g.read_text(encoding='utf-8')
