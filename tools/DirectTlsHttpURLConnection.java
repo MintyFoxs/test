@@ -27,7 +27,7 @@ public final class DirectTlsHttpURLConnection extends HttpURLConnection {
             try(SSLSocket tls=(SSLSocket)factory.createSocket(raw,host,443,true)){
                 tls.setSoTimeout(25000);
                 tls.startHandshake(); // ordinary OS trust manager checks the certificate chain
-                if(!HttpsURLConnection.getDefaultHostnameVerifier().verify(host,tls.getSession()))
+                if(!DirectVerifiedHttps.verifyPeerDnsName(tls.getSession(),host))
                     throw new SSLHandshakeException("Certificate hostname mismatch for "+host);
                 byte[] body=requestBody.toByteArray();
                 String path=url.getFile();if(path==null||path.isEmpty())path="/";
