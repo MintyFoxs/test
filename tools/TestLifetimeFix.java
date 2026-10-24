@@ -13,6 +13,9 @@ public class TestLifetimeFix {
         young.knowledge=90;
         int bonusLife=young.naturalLifeDays();young.knowledge=0;
         check(bonusLife-young.naturalLifeDays()==3,"Study does not add 3 days");
+        young.discipline=4;
+        check(young.naturalLifeDays()==bonusLife-3,"Discipline double-counts study bonus");
+        young.discipline=0;
         young.knowledge=90;
         young.sickness=20;
         young.advance(t+5*PetGame.DAY);
