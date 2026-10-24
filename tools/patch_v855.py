@@ -18,7 +18,7 @@ patch('PetGame.java',[
                     && (sickness>=17 || missed>=45);
             if (lastTick>=revivalProtectedUntil && (naturalEnd || criticalCare)) {'''),
  ('    /** Capture a frozen portrait', '''    public int knowledgeBonusDays(){return Math.min(3,Math.max(0,knowledge)/30);}
-    public int naturalLifeDays(){return Math.max(7,18+Math.min(4,discipline)-missed/4-sickness/2)+knowledgeBonusDays();}
+    public int naturalLifeDays(){return Math.max(7,18-missed/4-sickness/2)+knowledgeBonusDays();}
     public boolean revive(long now){
         if(alive || stage!=DEAD)return false;
         alive=true;stage=Math.max(BABY,Math.min(ADULT,finalStage));diedAt=0;lastTick=now;
@@ -34,7 +34,7 @@ patch('PetStore.java',[
     private static final String MARK="revive_once_20261024_v1";
     private static final String BACKUP="pocketpet96_pre_revive_20261024";'''),
  ('g.gamesWon=p.getInt("games_won",0);','''g.gamesWon=p.getInt("games_won",0);
-        g.knowledge=Math.max(0,Math.min(100,p.getInt("knowledge",0)));
+        g.knowledge=Math.max(0,Math.min(100,p.getInt("knowledge",Math.min(90,g.discipline*30))));
         g.revivalProtectedUntil=p.getLong("revival_protected_until",0);'''),
  ('.putInt("games_won",g.gamesWon).putLong("last_pat",g.lastPat)',
  '''.putInt("games_won",g.gamesWon).putInt("knowledge",g.knowledge)
