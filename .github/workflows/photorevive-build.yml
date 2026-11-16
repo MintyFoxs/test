@@ -30,7 +30,11 @@ jobs:
           src = p.read_text()
           old = 'kotlinOptions { jvmTarget = "17" }'
           assert old in src
-          p.write_text(src.replace(old, 'kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }'))
+          src = src.replace(old, 'kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }')
+          src = src.replace('androidx.compose:compose-bom:2026.09.00', 'androidx.compose:compose-bom:2025.05.00')
+          src = src.replace('androidx.activity:activity-compose:1.13.0', 'androidx.activity:activity-compose:1.10.1')
+          src = src.replace('androidx.lifecycle:lifecycle-runtime-ktx:2.10.0', 'androidx.lifecycle:lifecycle-runtime-ktx:2.9.0')
+          p.write_text(src)
           PY
       - uses: actions/setup-java@v4
         with:
