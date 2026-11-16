@@ -22,6 +22,16 @@ jobs:
           PY
           mkdir -p photoapp
           tar -xf source.tar -C photoapp
+      - name: Update Kotlin compiler DSL
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("photoapp/app/build.gradle.kts")
+          src = p.read_text()
+          old = 'kotlinOptions { jvmTarget = "17" }'
+          assert old in src
+          p.write_text(src.replace(old, 'kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }'))
+          PY
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
